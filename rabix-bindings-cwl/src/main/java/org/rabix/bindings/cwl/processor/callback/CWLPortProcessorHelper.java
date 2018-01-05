@@ -58,23 +58,16 @@ public class CWLPortProcessorHelper {
     try {
       return portProcessor.processOutputs(outputs, new CWLFileValueUpdateProcessorCallback(fileTransformer));
     } catch (CWLPortProcessorException e) {
-      throw new CWLPortProcessorException("Failed to set input file size", e);
+      throw new CWLPortProcessorException(e);
     }
   }
   
   public Map<String, Object> setFileProperties(Map<String, Object> inputs) throws CWLPortProcessorException {
     try {
-      return portProcessor.processInputs(inputs, new CWLFilePropertiesProcessorCallback(Paths.get(portProcessor.getJob().getApp().getAppFileLocation())));
+      String appFileLocation = portProcessor.getJob().getApp().getAppFileLocation();
+      return portProcessor.processInputs(inputs, new CWLFilePropertiesProcessorCallback(Paths.get(appFileLocation == null ? "." : appFileLocation).toAbsolutePath().normalize()));
     } catch (CWLPortProcessorException e) {
-      throw new CWLPortProcessorException("Failed to set input file properties", e);
-    }
-  }
-  
-  public Map<String, Object> setPathsToInputs(Map<String, Object> inputs) throws CWLPortProcessorException {
-    try {
-      return portProcessor.processInputs(inputs, new CWLFileLocationToPathProcessorCallback(this.portProcessor.getJob().getApp().getAppFileLocation()));
-    } catch (CWLPortProcessorException e) {
-      throw new CWLPortProcessorException("Failed to set paths", e);
+      throw new CWLPortProcessorException(e);
     }
   }
 
@@ -82,7 +75,7 @@ public class CWLPortProcessorHelper {
     try {
       return portProcessor.processInputs(inputs, new CWLFileLiteralProcessorCallback(workingDir));
     } catch (CWLPortProcessorException e) {
-      throw new CWLPortProcessorException("Failed to set paths", e);
+      throw new CWLPortProcessorException(e);
     }
   }
   
@@ -90,7 +83,7 @@ public class CWLPortProcessorHelper {
     try {
       return portProcessor.processInputs(inputs, new CWLLoadContentsPortProcessorCallback());
     } catch (CWLPortProcessorException e) {
-      throw new CWLPortProcessorException("Failed to load input contents.", e);
+      throw new CWLPortProcessorException(e);
     }
   }
 
