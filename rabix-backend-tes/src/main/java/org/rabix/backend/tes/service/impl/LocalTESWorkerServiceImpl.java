@@ -114,11 +114,13 @@ public class LocalTESWorkerServiceImpl implements WorkerService {
       Path dir = storage.localDir(job);
       if (!bindings.isSelfExecutable(job)) {
         TESOutput tesTaskParameter = tesJob.getOutputs().get(0);
-        Path outDir = Paths.get(URI.create(tesTaskParameter.getLocation() + "/"));
+
+        URI uri = URI.create(tesTaskParameter.getLocation() + "/");
+        Path outDir = Paths.get(uri);
         dir = outDir;
       }
       job = bindings.postprocess(job, dir, HashAlgorithm.SHA1, (String path, Map<String, Object> config) -> path);
-    } catch (BindingException e) {
+    } catch (Exception e) {
       logger.error("Couldn't process job", e);
       job = Job.cloneWithStatus(job, JobStatus.FAILED);
     }
@@ -242,7 +244,8 @@ public class LocalTESWorkerServiceImpl implements WorkerService {
           return new TESWorkPair(job, new TESTask(null, TESState.COMPLETE, null, null, null, null, null, null, null, null, null, null));
         }
 
-        Set<TESInput> inputs = new HashSet<>();
+        Set<TESInput> inputs = new HashSet<>(); 
+        
         Map<String, Object> wfInputs = job.getInputs();
         Collection<FileValue> flat = flatten(wfInputs);
         List<Requirement> combinedRequirements = getRequirements(bindings);
@@ -279,7 +282,7 @@ public class LocalTESWorkerServiceImpl implements WorkerService {
             localDir.toString(), commandLine.getStandardIn(), commandLineToolStdout, commandLineToolErrLog, getVariables(combinedRequirements)));
 
         TESResources resources = getResources(combinedRequirements);
-        TESTask task = new TESTask(job.getName(), null, new ArrayList<TESInput>(inputs), outputs, resources, command, null, null, null);
+        TESTask task = new TESTask(job.getName(), null, new ArrayList<>(inputs), outputs, resources, command, null, null, null);
 
         TESCreateTaskResponse tesJobId = tesHttpClient.runTask(task);
 
