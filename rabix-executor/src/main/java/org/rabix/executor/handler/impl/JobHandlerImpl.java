@@ -191,61 +191,7 @@ public class JobHandlerImpl implements JobHandler {
       if (fileRequirements == null) {
         return;
       }
-
-      Map<String, String> stagedFiles = new HashMap<>();
-
-      for (SingleFileRequirement fileRequirement : fileRequirements) {
-        File destinationFile = new File(workingDir, fileRequirement.getFilename());
-        if (fileRequirement instanceof SingleTextFileRequirement) {
-          FileUtils.writeStringToFile(destinationFile, ((SingleTextFileRequirement) fileRequirement).getContent());
-          continue;
-        }
-        if (fileRequirement instanceof SingleInputFileRequirement || fileRequirement instanceof SingleInputDirectoryRequirement) {
-          FileValue content = ((SingleInputFileRequirement) fileRequirement).getContent();
-          if (FileValue.isLiteral(content)) {
-            if (fileRequirement instanceof SingleInputDirectoryRequirement) {
-              destinationFile.mkdirs();
-            } else {
-              destinationFile.createNewFile();              
-            }
-            return;
-          }
-          
-          URI location = URI.create(content.getLocation());
-          String path = location.getScheme()!=null ? Paths.get(location).toString() : content.getPath();
-          String mappedPath = inputFileMapper.map(path, job.getConfig());
-          stagedFiles.put(path, destinationFile.getPath());
-          File file = new File(mappedPath);
-
-          if (!file.exists()) {
-            continue;
-          }
-          boolean isLinkEnabled = ((SingleInputFileRequirement) fileRequirement).isLinkEnabled();
-          if (file.isFile()) {
-            if (isLinkEnabled) {
-              Files.createLink(destinationFile.toPath(), file.toPath()); // use hard link
-            } else {
-              FileUtils.copyFile(file, destinationFile); // use copy
-            }
-          } else {
-            FileUtils.copyDirectory(file, destinationFile); // use copy
-          }
-        }
-      }
-
-      try {
-        job = FileValueHelper.updateInputFiles(job, fileValue -> {
-          if (stagedFiles.containsKey(fileValue.getPath())) {
-            String path = stagedFiles.get(fileValue.getPath());
-            fileValue.setPath(path);
-            fileValue.setLocation(Paths.get(path).toUri().toString());
-          }
-
-          return fileValue;
-        });
-      } catch (BindingException e) {
-        throw new FileMappingException(e);
-      }
+      job = FileValueHelper.stageFileRequirements(job, fileRequirementResource, workingDir.toPath(), inputFileMapper);
 
     } catch (IOException e) {
       throw new ExecutorException("Failed to process file requirements.", e);

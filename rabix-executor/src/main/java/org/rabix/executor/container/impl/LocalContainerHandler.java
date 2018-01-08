@@ -2,10 +2,7 @@ package org.rabix.executor.container.impl;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -22,11 +19,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.rabix.bindings.Bindings;
 import org.rabix.bindings.BindingsFactory;
 import org.rabix.bindings.CommandLine;
-import org.rabix.bindings.helper.FileValueHelper;
 import org.rabix.bindings.mapper.FileMappingException;
 import org.rabix.bindings.mapper.FilePathMapper;
-import org.rabix.bindings.model.DirectoryValue;
-import org.rabix.bindings.model.FileValue;
 import org.rabix.bindings.model.Job;
 import org.rabix.bindings.model.Resources;
 import org.rabix.bindings.model.requirement.EnvironmentVariableRequirement;
@@ -60,22 +54,6 @@ public class LocalContainerHandler implements ContainerHandler {
     this.job = job;
     this.workingDir = storageConfig.getWorkingDir(job);
   }
-
-  private void stageFile(FileValue file) {
-    Path path = Paths.get(file.getPath());
-    if (!Files.exists(path)) {
-      try {
-        Files.copy(Paths.get(URI.create(file.getLocation())), path);
-      } catch (IOException e) {
-        logger.error("Failed to stage file: " + file.getLocation(), e);
-      }
-    }
-    file.getSecondaryFiles().forEach((FileValue sec) -> stageFile(sec));
-    
-    if(file instanceof DirectoryValue){
-      ((DirectoryValue)file).getListing().forEach(f->stageFile(f));
-    }
-  }
   
   @Override
   public synchronized void start() throws ContainerException {
@@ -107,18 +85,12 @@ public class LocalContainerHandler implements ContainerHandler {
         }
       }
       
-      
       EnvironmentVariableRequirement environmentVariableResource = getRequirement(combinedRequirements, EnvironmentVariableRequirement.class);
       if (environmentVariableResource != null) {
         for (Entry<String, String> envVariableEntry : environmentVariableResource.getVariables().entrySet()) {
           env.put(envVariableEntry.getKey(), envVariableEntry.getValue());
         }
       }
-
-      FileValueHelper.updateFileValues(job.getInputs(), (FileValue f) -> {
-        stageFile(f);
-        return f;
-      });
 
       commandLineString = commandLine.build();
       processBuilder.directory(workingDir);
