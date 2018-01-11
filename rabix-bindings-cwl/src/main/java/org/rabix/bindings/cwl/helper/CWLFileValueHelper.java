@@ -369,19 +369,19 @@ public class CWLFileValueHelper extends CWLBeanHelper {
 
     if (path == null) {
       if (location != null) {
-        URI uri = URI.create(location);
+        URI uri = URI.create(location.replace(" ", "%20"));
         if (uri.getScheme() == null) {
           uri = new URI("file", location, null);
         }
         if (uri.isOpaque()) {
-          uri = new URI("file", workDir.resolve(uri.getSchemeSpecificPart()).toAbsolutePath().toString(), null);
+          uri = new URI("file", workDir.resolve(location).toAbsolutePath().toString(), null);
         }
         location = uri.toString();
         actual = Paths.get(uri);
         if (!actual.isAbsolute()) {
           actual = workDir.resolve(actual).toAbsolutePath();
         }
-        path = actual.toString();
+        path = uri.getPath();
       } else {
         return;
       }
