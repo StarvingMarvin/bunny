@@ -315,15 +315,9 @@ public class FileValueHelper {
           return job;
         }
 
-        URI location = URI.create(content.getLocation());
-        String path = location.getScheme() != null ? Paths.get(location).toString() : content.getPath();
-        String mappedPath = inputFileMapper.map(path, job.getConfig());
-        stagedFiles.put(path, destinationFile);
-        Path file = Paths.get(mappedPath);
+        Path file = Paths.get(URI.create(content.getLocation()));
+        stagedFiles.put(file.toString(), destinationFile);
 
-        if (!Files.exists(file)) {
-          continue;
-        }
         boolean isLinkEnabled = ((SingleInputFileRequirement) fileRequirement).isLinkEnabled();
         if (!Files.isDirectory(file)) {
           if (isLinkEnabled) {
