@@ -314,8 +314,18 @@ public class FileValueHelper {
           }
           return job;
         }
-
-        Path file = Paths.get(URI.create(content.getLocation()));
+        
+        String location = content.getLocation();
+        if (location == null)
+          location = content.getPath();
+        URI uri = URI.create(location);
+        Path file;
+        if (uri.getScheme() == null) {
+          file = Paths.get(location);
+        } else {
+          file = Paths.get(uri);
+        }
+        
         stagedFiles.put(file.toString(), destinationFile);
 
         boolean isLinkEnabled = ((SingleInputFileRequirement) fileRequirement).isLinkEnabled();
