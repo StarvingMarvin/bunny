@@ -57,9 +57,6 @@ public abstract class CWLJobApp extends Application {
   @JsonDeserialize(using = CWLResourcesDeserializer.class)
   protected List<CWLResource> requirements = new ArrayList<>();
   
-  @JsonProperty("successCodes")
-  protected List<Integer> successCodes = new ArrayList<>();
-  
   @JsonIgnore
   public String getId() {
     return (String) getProperty("id");
@@ -78,10 +75,6 @@ public abstract class CWLJobApp extends Application {
   @JsonIgnore
   public String getVersion() {
     return getCwlVersion();
-  }
-  
-  public List<Integer> getSuccessCodes() {
-    return successCodes;
   }
 
   public void setAppFileLocation(String appFileLocation) {

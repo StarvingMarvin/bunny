@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -27,7 +28,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.configuration.Configuration;
 import org.apache.commons.lang.NotImplementedException;
-import org.apache.commons.lang3.StringUtils;
 import org.rabix.backend.api.WorkerService;
 import org.rabix.backend.api.callback.WorkerStatusCallback;
 import org.rabix.backend.api.callback.WorkerStatusCallbackException;
@@ -82,6 +82,7 @@ public class LocalTESWorkerServiceImpl implements WorkerService {
 
   private final static String TYPE = "TES";
   public final static String DEFAULT_COMMAND_LINE_TOOL_ERR_LOG = "job.err.log";
+  private static final String EXIT_CODE = "exitcode";
 
   @BindingAnnotation
   @Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.PARAMETER, java.lang.annotation.ElementType.METHOD})
@@ -112,14 +113,26 @@ public class LocalTESWorkerServiceImpl implements WorkerService {
     try {
       Bindings bindings = BindingsFactory.create(job);
       Path dir = storage.localDir(job);
+      int processExitCode = 0;
       if (!bindings.isSelfExecutable(job)) {
         TESOutput tesTaskParameter = tesJob.getOutputs().get(0);
 
         URI uri = URI.create(tesTaskParameter.getLocation() + "/");
         Path outDir = Paths.get(uri);
         dir = outDir;
+        Path exitcode = dir.getParent().resolve(EXIT_CODE + job.getName());
+        if (Files.exists(exitcode)) {
+          String stringval = new String(Files.readAllBytes(exitcode));
+          processExitCode = Integer.valueOf(stringval.substring(0, stringval.length() - 1));
+          Files.delete(exitcode);
+        }
       }
-      job = bindings.postprocess(job, dir, HashAlgorithm.SHA1, (String path, Map<String, Object> config) -> path);
+      if (!bindings.isSuccessful(job, processExitCode)) {
+        job = Job.cloneWithStatus(job, JobStatus.FAILED);
+        job = job.cloneWithMessage(job, "Job exited with exit status " + processExitCode);
+      } else {
+        job = bindings.postprocess(job, dir, HashAlgorithm.SHA1, (String path, Map<String, Object> config) -> path);
+      }
     } catch (Exception e) {
       logger.error("Couldn't process job", e);
       job = Job.cloneWithStatus(job, JobStatus.FAILED);
@@ -218,7 +231,6 @@ public class LocalTESWorkerServiceImpl implements WorkerService {
 
 
   public class TaskRunCallable implements Callable<TESWorkPair> {
-
     private Job job;
     private Path workDir;
     private Path localDir;
@@ -244,8 +256,8 @@ public class LocalTESWorkerServiceImpl implements WorkerService {
           return new TESWorkPair(job, new TESTask(null, TESState.COMPLETE, null, null, null, null, null, null, null, null, null, null));
         }
 
-        Set<TESInput> inputs = new HashSet<>(); 
-        
+        Set<TESInput> inputs = new HashSet<>();
+
         Map<String, Object> wfInputs = job.getInputs();
         Collection<FileValue> flat = flatten(wfInputs);
         List<Requirement> combinedRequirements = getRequirements(bindings);
@@ -262,8 +274,8 @@ public class LocalTESWorkerServiceImpl implements WorkerService {
         });
         job = Job.cloneWithInputs(job, wfInputs);
 
-        List<TESOutput> outputs = Collections.singletonList(
-            new TESOutput(localDir.getFileName().toString(), null, workDir.toUri().toString(), localDir.toString(), TESFileType.DIRECTORY));
+        List<TESOutput> outputs = new ArrayList<>();
+        outputs.add(new TESOutput(localDir.getFileName().toString(), null, workDir.toUri().toString(), localDir.toString(), TESFileType.DIRECTORY));
 
         CommandLine commandLine = bindings.buildCommandLineObject(job, localDir.toFile(), (String path, Map<String, Object> config) -> path);
 
@@ -278,7 +290,17 @@ public class LocalTESWorkerServiceImpl implements WorkerService {
         }
         commandLineToolErrLog = localDir.resolve(commandLineToolErrLog).toString();
 
-        List<TESExecutor> command = Collections.singletonList(new TESExecutor(getImageId(dockerContainerRequirement), buildCommandLine(commandLine),
+        List<Integer> successCodes = bindings.loadAppObject(job.getApp()).getSuccessCodes();
+        String builtLine = commandLine.build();
+        if (successCodes != null && !successCodes.isEmpty()) {
+          String exitcode = localDir.getParent().resolve(EXIT_CODE + job.getName()).toString();
+          builtLine = builtLine + ";\n echo $? > " + exitcode;
+          outputs.add(new TESOutput(EXIT_CODE, null, workDir.getParent().resolve(EXIT_CODE + job.getName()).toUri().toString(), exitcode, TESFileType.FILE));
+        }
+
+        inputs.add(new TESInput("command", null, null, "/bunny.sh", TESFileType.FILE, builtLine));
+
+        List<TESExecutor> command = Collections.singletonList(new TESExecutor(getImageId(dockerContainerRequirement), Arrays.asList("/bin/sh", "/bunny.sh"),
             localDir.toString(), commandLine.getStandardIn(), commandLineToolStdout, commandLineToolErrLog, getVariables(combinedRequirements)));
 
         TESResources resources = getResources(combinedRequirements);
@@ -301,30 +323,6 @@ public class LocalTESWorkerServiceImpl implements WorkerService {
         logger.error("Failed to use Bindings", e);
         throw new TESServiceException("Failed to use Bindings", e);
       }
-    }
-
-    private List<String> buildCommandLine(CommandLine commandLine) {
-      List<String> mainCommand = new ArrayList<>();
-      List<String> parts = commandLine.getParts();
-      StringBuilder joined = new StringBuilder();
-
-      parts.forEach(part -> {
-        if ((!mainCommand.isEmpty() && mainCommand.get(mainCommand.size() - 1).equals("-c")) || joined.length() > 0) {
-          joined.append(" ").append(part);
-        } else {
-          mainCommand.add(part);
-        }
-      });
-      if (joined.length() > 0) {
-        mainCommand.add(joined.toString().trim());
-      } else {
-        joined.append(StringUtils.join(mainCommand, " "));
-        mainCommand.clear();
-        mainCommand.add(joined.toString());
-        mainCommand.add(0, "-c");
-        mainCommand.add(0, "/bin/sh");
-      }
-      return mainCommand;
     }
 
     private Map<String, String> getVariables(List<Requirement> combinedRequirements) {

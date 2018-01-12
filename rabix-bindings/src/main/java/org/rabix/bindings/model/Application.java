@@ -54,6 +54,9 @@ public abstract class Application {
   @JsonProperty("appFileLocation")
   @JsonView(BeanPropertyView.Full.class)
   protected String appFileLocation;
+  
+  @JsonProperty("successCodes")
+  protected List<Integer> successCodes = new ArrayList<>();
 
   public String getAppFileLocation() {
     return appFileLocation;
@@ -61,6 +64,10 @@ public abstract class Application {
 
   public void setAppFileLocation(String appFileLocation) {
     this.appFileLocation = appFileLocation;
+  }
+  
+  public List<Integer> getSuccessCodes() {
+    return successCodes;
   }
   
   protected Map<String, Object> raw = new HashMap<>();

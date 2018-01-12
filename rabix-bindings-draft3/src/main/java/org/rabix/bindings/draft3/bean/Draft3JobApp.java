@@ -47,9 +47,6 @@ public abstract class Draft3JobApp extends Application {
   protected List<Draft3Resource> hints = new ArrayList<>();
   @JsonProperty("requirements")
   protected List<Draft3Resource> requirements = new ArrayList<>();
-  
-  @JsonProperty("successCodes")
-  protected List<Integer> successCodes = new ArrayList<>();
 
   @JsonIgnore
   public String getId() {
@@ -69,10 +66,6 @@ public abstract class Draft3JobApp extends Application {
   @JsonIgnore
   public String getVersion() {
     return getCwlVersion();
-  }
-  
-  public List<Integer> getSuccessCodes() {
-    return successCodes;
   }
 
   @JsonIgnore

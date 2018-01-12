@@ -49,16 +49,9 @@ public abstract class Draft2JobApp extends Application {
   @JsonProperty("requirements")
   protected List<Draft2Resource> requirements = new ArrayList<>();
   
-  @JsonProperty("successCodes")
-  protected List<Integer> successCodes = new ArrayList<>();
-
   @JsonIgnore
   public String getId() {
     return (String) getProperty("id");
-  }
-  
-  public List<Integer> getSuccessCodes() {
-    return successCodes;
   }
 
   @JsonIgnore
