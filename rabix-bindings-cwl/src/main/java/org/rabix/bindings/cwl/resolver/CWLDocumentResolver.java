@@ -97,9 +97,13 @@ public class CWLDocumentResolver {
 
   public static String resolve(String appUrl) throws BindingException {
     String appUrlBase = appUrl;
-    URI uri = URI.create(appUrl);
-    if (uri.getScheme().equals(URIHelper.DATA_URI_SCHEME)) {
-      appUrlBase = URIHelper.extractBase(appUrl);
+    try {
+      URI uri = URI.create(appUrl);
+      if (uri.getScheme().equals(URIHelper.DATA_URI_SCHEME)) {
+        appUrlBase = URIHelper.extractBase(appUrl);
+      }
+    } catch (IllegalArgumentException e) {
+
     }
 
     boolean rewriteDefaultPaths = false;
@@ -110,7 +114,7 @@ public class CWLDocumentResolver {
       boolean isFile = URIHelper.isFile(appUrlBase);
       if (isFile) {
         rewriteDefaultPaths = true;
-        file = Paths.get(uri.getPath());
+        file = Paths.get(URI.create(appUrlBase));
       } else {
         file = Paths.get(".");
       }
