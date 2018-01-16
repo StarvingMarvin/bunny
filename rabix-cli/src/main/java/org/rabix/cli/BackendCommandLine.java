@@ -87,17 +87,11 @@ public class BackendCommandLine {
       final String app = commandLine.getArgList().get(0);
 
       Path filePath = null;
-      URI appUri = URI.create(app);
+      URI appUri = URI.create(app.replace(" ", "%20"));
       if (appUri.getScheme() == null) {
-        appUri = new URI("file", appUri.getSchemeSpecificPart(), appUri.getFragment());
+        appUri = new URI("file", Paths.get("").toAbsolutePath().resolve(appUri.getSchemeSpecificPart()).toString(), appUri.getFragment());
       }
-
-      if (appUri.getScheme().equals("file")) {
-        filePath = Paths.get("").toAbsolutePath().resolve(appUri.getSchemeSpecificPart());
-      } else {
-        filePath = Paths.get(new URI(appUri.getScheme(), appUri.getSchemeSpecificPart(), null)).toAbsolutePath();
-      }
-
+      filePath = Paths.get(appUri.getPath());
       if (!Files.exists(filePath)) {
         VerboseLogger.log(String.format("Application file %s does not exist.", appUri.toString()));
         printUsageAndExit(posixOptions);
@@ -370,14 +364,11 @@ public class BackendCommandLine {
         if (inputsFile != null) {
           final Path finalInputs = inputsFile;
           FileValueHelper.updateFileValues(commonInputs, (FileValue f) -> {
-            String path = f.getPath();
-            if (path != null && !Paths.get(path).isAbsolute()) {
-              f.setPath(finalInputs.resolveSibling(path).normalize().toString());
-            }
-            String location = f.getLocation();
-            if (location != null && URI.create(location).getScheme() == null) {
-              f.setLocation(finalInputs.resolveSibling(location).normalize().toString());
-            }
+            fixPaths(finalInputs, f);
+            if (f.getSecondaryFiles() != null)
+              for (FileValue sec : f.getSecondaryFiles()) {
+                fixPaths(finalInputs, sec);
+              }
             return f;
           });
         }
@@ -396,6 +387,18 @@ public class BackendCommandLine {
     } catch (JobServiceException | BootstrapServiceException | URISyntaxException e) {
       logger.error("Encountered an error while starting local backend.", e);
       System.exit(10);
+    }
+  }
+
+
+  private static void fixPaths(final Path finalInputs, FileValue f) {
+    String path = f.getPath();
+    if (path != null && !Paths.get(path).isAbsolute()) {
+      f.setPath(finalInputs.resolveSibling(path).normalize().toString());
+    }
+    String location = f.getLocation();
+    if (location != null && URI.create(location).getScheme() == null) {
+      f.setLocation(finalInputs.resolveSibling(location).normalize().toString());
     }
   }
 
@@ -500,7 +503,7 @@ public class BackendCommandLine {
   }
 
   private static void printVersionAndExit(Options posixOptions) {
-    System.out.println("Rabix 1.0.3");
+    System.out.println("Rabix 1.0.4");
     System.exit(0);
   }
 

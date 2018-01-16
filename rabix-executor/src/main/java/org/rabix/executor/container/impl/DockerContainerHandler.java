@@ -223,19 +223,19 @@ public class DockerContainerHandler implements ContainerHandler {
       if (SystemUtils.IS_OS_WINDOWS) {
         hostConfigBuilder.binds(hostConfigBuilder.binds().stream().map(s -> s.replace("\\", "/")).collect(Collectors.toList()));
       }
-      HostConfig hostConfig = hostConfigBuilder.build();
-
+      
       String dockerPull = checkTagOrAddLatest(dockerResource.getDockerPull());
       pull(dockerPull);
 
       ContainerConfig.Builder builder = ContainerConfig.builder();
       builder.image(dockerPull);
-      builder.hostConfig(hostConfig);
 
       if (setPermissions && !SystemUtils.IS_OS_WINDOWS) {
         builder.user(getUser());
+        hostConfigBuilder.capAdd("DAC_OVERRIDE");
       }
 
+      builder.hostConfig(hostConfigBuilder.build());
       Bindings bindings = BindingsFactory.create(job);
       commandLine = bindings.buildCommandLineObject(job, workingDir, mapper).build();
 
