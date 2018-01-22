@@ -1,12 +1,16 @@
 package org.rabix.backend.tes.model;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
-public class TESTask {
+import org.rabix.backend.model.RemoteTask;
+
+public class TESTask implements RemoteTask {
 
   @JsonProperty("id")
   private String id;
@@ -33,15 +37,10 @@ public class TESTask {
   @JsonProperty("logs")
   private List<TESTaskLogs> logs;
 
-  public TESTask(@JsonProperty("name") String name,
-                 @JsonProperty("description") String description,
-                 @JsonProperty("inputs") List<TESInput> inputs,
-                 @JsonProperty("outputs") List<TESOutput> outputs,
-                 @JsonProperty("resources") TESResources resources,
-                 @JsonProperty("executors") List<TESExecutor> executors,
-                 @JsonProperty("volumes") List<String> volumes,
-                 @JsonProperty("tags") Map<String, String> tags,
-                 @JsonProperty("creation_time") String createTime) {
+  public TESTask(@JsonProperty("name") String name, @JsonProperty("description") String description, @JsonProperty("inputs") List<TESInput> inputs,
+      @JsonProperty("outputs") List<TESOutput> outputs, @JsonProperty("resources") TESResources resources,
+      @JsonProperty("executors") List<TESExecutor> executors, @JsonProperty("volumes") List<String> volumes, @JsonProperty("tags") Map<String, String> tags,
+      @JsonProperty("creation_time") String createTime) {
     this.name = name;
     this.description = description;
     this.inputs = inputs;
@@ -54,18 +53,10 @@ public class TESTask {
   }
 
   @JsonCreator
-  public TESTask(@JsonProperty("id") String id,
-                 @JsonProperty("state") TESState state,
-                 @JsonProperty("name") String name,
-                 @JsonProperty("description") String description,
-                 @JsonProperty("inputs") List<TESInput> inputs,
-                 @JsonProperty("outputs") List<TESOutput> outputs,
-                 @JsonProperty("resources") TESResources resources,
-                 @JsonProperty("executors") List<TESExecutor> executors,
-                 @JsonProperty("volumes") List<String> volumes,
-                 @JsonProperty("tags") Map<String, String> tags,
-                 @JsonProperty("logs") List<TESTaskLogs> logs,
-                 @JsonProperty("creation_time") String createTime) {
+  public TESTask(@JsonProperty("id") String id, @JsonProperty("state") TESState state, @JsonProperty("name") String name,
+      @JsonProperty("description") String description, @JsonProperty("inputs") List<TESInput> inputs, @JsonProperty("outputs") List<TESOutput> outputs,
+      @JsonProperty("resources") TESResources resources, @JsonProperty("executors") List<TESExecutor> executors, @JsonProperty("volumes") List<String> volumes,
+      @JsonProperty("tags") Map<String, String> tags, @JsonProperty("logs") List<TESTaskLogs> logs, @JsonProperty("creation_time") String createTime) {
     this.id = id;
     this.state = state;
     this.name = name;
@@ -155,13 +146,39 @@ public class TESTask {
   public String getCreateTime() {
     return createTime;
   }
-  
-  public List<TESTaskLogs> getLogs() { return logs; }
 
-  @Override
-  public String toString() {
-    return "TESTask [name=" + name + ", description=" + description + ", inputs=" + inputs + ", outputs=" + outputs
-        + ", resources=" + resources + ", executors=" + executors + "]";
+  public List<TESTaskLogs> getLogs() {
+    return logs;
   }
 
+  @Override
+  @JsonIgnore
+  public String toString() {
+    return "TESTask [name=" + name + ", description=" + description + ", inputs=" + inputs + ", outputs=" + outputs + ", resources=" + resources
+        + ", executors=" + executors + "]";
+  }
+
+  @Override
+  @JsonIgnore
+  public URI getOutputLocation() {
+    URI uri = URI.create(getOutputs().get(0).getLocation() + "/");
+    return uri;
+  }
+
+  @Override
+  @JsonIgnore
+  public boolean isSuccess() {
+    return this.state.equals(TESState.COMPLETE);
+  }
+
+  @JsonIgnore
+  public boolean isFinished() {
+    return state.equals(TESState.CANCELED) || state.equals(TESState.COMPLETE) || state.equals(TESState.EXECUTOR_ERROR) || state.equals(TESState.SYSTEM_ERROR);
+  }
+
+  @Override
+  public String getError() {
+    // TODO Auto-generated method stub
+    return null;
+  }
 }

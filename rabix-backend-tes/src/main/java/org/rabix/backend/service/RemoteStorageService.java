@@ -1,4 +1,4 @@
-package org.rabix.backend.tes.service;
+package org.rabix.backend.service;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -7,7 +7,7 @@ import org.rabix.bindings.BindingException;
 import org.rabix.bindings.model.FileValue;
 import org.rabix.bindings.model.Job;
 
-public interface TESStorageService {
+public interface RemoteStorageService {
 
   Job transformInputFiles(Job job) throws BindingException;
    

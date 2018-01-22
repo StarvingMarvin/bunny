@@ -8,11 +8,14 @@ import java.util.Map;
 import org.apache.commons.configuration.Configuration;
 import org.rabix.backend.api.BackendModule;
 import org.rabix.backend.api.WorkerService;
+import org.rabix.backend.service.RemoteStorageService;
 import org.rabix.backend.tes.client.TESHttpClient;
-import org.rabix.backend.tes.service.TESStorageService;
+import org.rabix.backend.tes.service.impl.GoogleWorker;
 import org.rabix.backend.tes.service.impl.LocalTESStorageServiceImpl;
-import org.rabix.backend.tes.service.impl.LocalTESWorkerServiceImpl;
-import org.rabix.backend.tes.service.impl.LocalTESWorkerServiceImpl.TESWorker;
+import org.rabix.backend.tes.service.impl.LocalWorkerServiceImpl;
+import org.rabix.backend.tes.service.impl.TesWorker;
+import org.rabix.backend.tes.service.impl.LocalWorkerServiceImpl.RemoteWorker;
+import org.rabix.backend.tes.service.impl.TaskCallableFactory;
 import org.rabix.common.config.ConfigModule;
 
 import com.google.common.collect.ImmutableMap;
@@ -28,8 +31,9 @@ public class TESModule extends BackendModule {
   @Override
   protected void configure() {
     bind(TESHttpClient.class).in(Scopes.SINGLETON);
-    bind(TESStorageService.class).to(LocalTESStorageServiceImpl.class).in(Scopes.SINGLETON);
-    bind(WorkerService.class).annotatedWith(TESWorker.class).to(LocalTESWorkerServiceImpl.class).in(Scopes.SINGLETON);
+    bind(RemoteStorageService.class).to(LocalTESStorageServiceImpl.class).in(Scopes.SINGLETON);
+    bind(TaskCallableFactory.class).in(Scopes.SINGLETON);
+    bind(WorkerService.class).annotatedWith(RemoteWorker.class).to(GoogleWorker.class).in(Scopes.SINGLETON);
     Configuration configuration = this.configModule.provideConfig();
 
     String storageConfig = configuration.getString("rabix.tes.storage.base");

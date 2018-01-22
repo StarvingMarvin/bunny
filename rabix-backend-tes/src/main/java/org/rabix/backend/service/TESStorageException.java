@@ -1,4 +1,4 @@
-package org.rabix.backend.tes.service;
+package org.rabix.backend.service;
 
 public class TESStorageException extends Exception {
 

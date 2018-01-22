@@ -2,6 +2,7 @@ package org.rabix.backend.tes.client;
 
 import java.io.IOException;
 
+import org.rabix.backend.model.Checkable;
 import org.rabix.backend.tes.config.TESConfig;
 import org.rabix.backend.tes.model.TESCancelTaskRequest;
 import org.rabix.backend.tes.model.TESCancelTaskResponse;

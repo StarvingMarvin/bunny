@@ -10,8 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.configuration.Configuration;
-import org.rabix.backend.tes.service.TESStorageException;
-import org.rabix.backend.tes.service.TESStorageService;
+import org.rabix.backend.service.RemoteStorageService;
+import org.rabix.backend.service.TESStorageException;
 import org.rabix.bindings.BindingException;
 import org.rabix.bindings.helper.FileValueHelper;
 import org.rabix.bindings.model.DirectoryValue;
@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.inject.Inject;
 
-public class LocalTESStorageServiceImpl implements TESStorageService {
+public class LocalTESStorageServiceImpl implements RemoteStorageService {
 
   private final static Logger logger = LoggerFactory.getLogger(LocalTESStorageServiceImpl.class);
 
