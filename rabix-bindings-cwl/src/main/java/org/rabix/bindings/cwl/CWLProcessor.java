@@ -83,7 +83,7 @@ public class CWLProcessor implements ProtocolProcessor {
     CWLRuntime runtime = cwlJob.getRuntime();
     String path = workingDir.toAbsolutePath().toString();
     try {
-      path = filesPathMapper == null ? path : filesPathMapper.map(path, Collections.EMPTY_MAP);
+      path = filesPathMapper == null ? path : filesPathMapper.map(path, Collections.emptyMap());
     } catch (FileMappingException e1) {
       logger.error(e1.getMessage());
     }
@@ -374,7 +374,7 @@ public class CWLProcessor implements ProtocolProcessor {
       return null;
     }
 
-    Set<Path> files = globService.glob(job, workingDir, glob);
+    List<Path> files = globService.glob(job, workingDir, glob);
     if (files == null) {
       logger.info("Glob service didn't find any files.");
       return null;
@@ -449,6 +449,8 @@ public class CWLProcessor implements ProtocolProcessor {
     List<Object> secondaryFilesList = new ArrayList<>();
     if (secondaryFilesObj instanceof List<?>) {
       secondaryFilesList.addAll((Collection<? extends Object>) secondaryFilesObj);
+    } else if (secondaryFilesObj instanceof String) {
+      secondaryFilesList.add(secondaryFilesObj);
     }
 
     List<Map<String, Object>> secondaryFileMaps = new ArrayList<>();

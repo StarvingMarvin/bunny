@@ -105,13 +105,10 @@ public class CWLCommandLineBuilder implements ProtocolCommandLineBuilder {
   }
 
   private String toPath(String s, Path workDir) {
-    return s == null ? s :  sanitize(workDir.resolve(s).toString());
+    return StringUtils.isEmpty(s) ? s :  sanitize(workDir.resolve(s).toString());
   }
   
   private String sanitize(String s) {
-    if (s == null)
-      return s;
-    else
       return s.contains(" ") ? "'" + s + "'" : s;
   }
 
@@ -138,8 +135,8 @@ public class CWLCommandLineBuilder implements ProtocolCommandLineBuilder {
 
     try {
       List<Object> baseCmds = commandLineTool.getBaseCmd(job);
+      baseCmds.removeIf(s->StringUtils.isEmpty(s.toString()));
       result.addAll(Lists.transform(baseCmds, (obj -> new CommandLine.Part(obj.toString(), true))));
-
       List<CWLCommandLinePart> commandLineParts = new ArrayList<>();
 
       if (commandLineTool.hasArguments()) {
