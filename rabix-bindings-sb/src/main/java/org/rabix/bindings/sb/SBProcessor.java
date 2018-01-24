@@ -3,6 +3,8 @@ package org.rabix.bindings.sb;
 import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -357,7 +359,7 @@ public class SBProcessor implements ProtocolProcessor {
    * Gets secondary files (absolute paths)
    */
   public static List<Map<String, Object>> getSecondaryFiles(SBJob job, HashAlgorithm hashAlgorithm, Map<String, Object> fileValue, String fileName,
-      Object binding) throws SBExpressionException {
+      Object binding, boolean onlyExisting) throws SBExpressionException {
     List<String> secondaryFileSufixes = SBBindingHelper.getSecondaryFiles(binding);
 
     if (secondaryFileSufixes == null) {
@@ -383,14 +385,25 @@ public class SBProcessor implements ProtocolProcessor {
         secondaryFilePath += suffix.startsWith(".") ? suffix : "." + suffix;
       }
       try {
-        Map<String, Object> file = SBFileValueHelper.pathToRawFile(Paths.get(secondaryFilePath), hashAlgorithm, Paths.get(SBFileValueHelper.getPath(fileValue)));
-        secondaryFileMaps.add(file);
+        Path pathToSec = Paths.get(secondaryFilePath);
+        if (Files.exists(pathToSec) || !onlyExisting) {
+          Map<String, Object> file = SBFileValueHelper.pathToRawFile(pathToSec, hashAlgorithm, Paths.get(SBFileValueHelper.getPath(fileValue)));
+          secondaryFileMaps.add(file);
+        }
       } catch (IOException | URISyntaxException e) {
         logger.error("Couldn't collect secondary file: " + secondaryFilePath);
       }
 
     }
     return secondaryFileMaps;
+  }
+
+  /**
+   * Gets secondary files (absolute paths)
+   */
+  public static List<Map<String, Object>> getSecondaryFiles(SBJob job, HashAlgorithm hashAlgorithm, Map<String, Object> fileValue, String fileName,
+      Object binding) throws SBExpressionException {
+    return getSecondaryFiles(job, hashAlgorithm, fileValue, fileName, binding, true);
   }
 
   @Override
