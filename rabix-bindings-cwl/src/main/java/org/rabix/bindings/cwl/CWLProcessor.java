@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
+import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -165,6 +166,7 @@ public class CWLProcessor implements ProtocolProcessor {
       Map<String, Object> result = JSONHelper.readMap(resultStr);
       postprocessCreatedResults(result, hashAlgorithm, workingDir);
       BeanSerializer.serializePartial(resultFile, result);
+      Files.write(resultFile, JSONHelper.writeObject(result).getBytes());
       return result;
     }
 
