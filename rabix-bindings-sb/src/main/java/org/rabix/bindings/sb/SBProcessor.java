@@ -317,12 +317,8 @@ public class SBProcessor implements ProtocolProcessor {
         SBFileValueHelper.setSize(file.length(), fileData);
         SBFileValueHelper.setName(file.getName(), fileData);
         SBFileValueHelper.setPath(file.getAbsolutePath(), fileData);
-
-<<<<<<< HEAD
-        List<?> secondaryFiles = getSecondaryFiles(job, hashAlgorithm, fileData, file.getAbsolutePath(), outputBinding, false);
-=======
+        
         List<?> secondaryFiles = getSecondaryFiles(job, hashAlgorithm, fileData, file.getAbsolutePath(), outputBinding, true);
->>>>>>> master
         if (secondaryFiles != null) {
           SBFileValueHelper.setSecondaryFiles(secondaryFiles, fileData);
         }
