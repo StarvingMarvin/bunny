@@ -156,8 +156,8 @@ public class SBProcessor implements ProtocolProcessor {
     if (resultFile.exists()) {
       String resultStr = FileUtils.readFileToString(resultFile);
       Map<String, Object> result = JSONHelper.readMap(resultStr);
-      postprocessToolCreatedResults(result, hashAlgorithm);
-      return JSONHelper.readMap(resultStr);
+      postprocessToolCreatedResults(result, hashAlgorithm, workingDir.toPath());
+      return result;
     }
 
     Map<String, Object> result = new HashMap<>();
@@ -174,37 +174,30 @@ public class SBProcessor implements ProtocolProcessor {
     return result;
   }
 
-  private void postprocessToolCreatedResults(Object value, HashAlgorithm hashAlgorithm) {
+  private void postprocessToolCreatedResults(Object value, HashAlgorithm hashAlgorithm, Path workDir) {
     if (value == null) {
       return;
     }
     if ((SBSchemaHelper.isFileFromValue(value))) {
-      File file = new File(SBFileValueHelper.getPath(value));
-      if (!file.exists()) {
-        return;
-      }
-      SBFileValueHelper.setSize(file.length(), value);
-
-      if (hashAlgorithm != null) {
-        String checksum = ChecksumHelper.checksum(file, hashAlgorithm);
-        if (checksum != null) {
-          SBFileValueHelper.setChecksum(checksum, value);
-        }
+      try {
+        SBFileValueHelper.buildMissingInfo(value, hashAlgorithm, workDir);
+      } catch (IOException | URISyntaxException e) {
+        logger.error("Couldn't postprocess file: " + value + " : " + e.getMessage());
       }
 
       List<Map<String, Object>> secondaryFiles = SBFileValueHelper.getSecondaryFiles(value);
       if (secondaryFiles != null) {
         for (Object secondaryFile : secondaryFiles) {
-          postprocessToolCreatedResults(secondaryFile, hashAlgorithm);
+          postprocessToolCreatedResults(secondaryFile, hashAlgorithm, workDir);
         }
       }
     } else if (value instanceof List<?>) {
       for (Object subvalue : (List<?>) value) {
-        postprocessToolCreatedResults(subvalue, hashAlgorithm);
+        postprocessToolCreatedResults(subvalue, hashAlgorithm, workDir);
       }
     } else if (value instanceof Map<?, ?>) {
       for (Object subvalue : ((Map<?, ?>) value).values()) {
-        postprocessToolCreatedResults(subvalue, hashAlgorithm);
+        postprocessToolCreatedResults(subvalue, hashAlgorithm, workDir);
       }
     }
   }
@@ -325,7 +318,11 @@ public class SBProcessor implements ProtocolProcessor {
         SBFileValueHelper.setName(file.getName(), fileData);
         SBFileValueHelper.setPath(file.getAbsolutePath(), fileData);
 
+<<<<<<< HEAD
         List<?> secondaryFiles = getSecondaryFiles(job, hashAlgorithm, fileData, file.getAbsolutePath(), outputBinding, false);
+=======
+        List<?> secondaryFiles = getSecondaryFiles(job, hashAlgorithm, fileData, file.getAbsolutePath(), outputBinding, true);
+>>>>>>> master
         if (secondaryFiles != null) {
           SBFileValueHelper.setSecondaryFiles(secondaryFiles, fileData);
         }
