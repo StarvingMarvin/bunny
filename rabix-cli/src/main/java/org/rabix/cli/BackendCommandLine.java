@@ -1,40 +1,5 @@
 package org.rabix.cli;
 
-import com.google.inject.*;
-import org.apache.commons.cli.*;
-import org.apache.commons.configuration.Configuration;
-import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.lang.NotImplementedException;
-import org.apache.commons.lang.StringUtils;
-import org.rabix.backend.api.BackendModule;
-import org.rabix.backend.api.callback.WorkerStatusCallback;
-import org.rabix.backend.api.callback.impl.NoOpWorkerStatusCallback;
-import org.rabix.bindings.BindingException;
-import org.rabix.bindings.Bindings;
-import org.rabix.bindings.BindingsFactory;
-import org.rabix.bindings.ProtocolType;
-import org.rabix.bindings.model.*;
-import org.rabix.bindings.helper.FileValueHelper;
-import org.rabix.cli.service.LocalDownloadServiceImpl;
-import org.rabix.cli.status.LocalBackendEngineStatusCallback;
-import org.rabix.common.config.ConfigModule;
-import org.rabix.common.helper.JSONHelper;
-import org.rabix.common.json.BeanSerializer;
-import org.rabix.common.jvm.ClasspathScanner;
-import org.rabix.common.logging.VerboseLogger;
-import org.rabix.common.service.download.DownloadService;
-import org.rabix.common.service.upload.UploadService;
-import org.rabix.common.service.upload.impl.NoOpUploadServiceImpl;
-import org.rabix.engine.EngineModule;
-import org.rabix.engine.service.*;
-import org.rabix.engine.service.impl.*;
-import org.rabix.engine.status.EngineStatusCallback;
-import org.rabix.engine.stub.BackendStubFactory;
-import org.rabix.engine.stub.impl.BackendStubFactoryImpl;
-import org.rabix.transport.mechanism.TransportPlugin.ReceiveCallback;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -47,7 +12,74 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.apache.commons.configuration.Configuration;
+import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.lang.NotImplementedException;
+import org.apache.commons.lang.StringUtils;
+import org.rabix.backend.api.BackendModule;
+import org.rabix.backend.api.callback.WorkerStatusCallback;
+import org.rabix.backend.api.callback.impl.NoOpWorkerStatusCallback;
+import org.rabix.bindings.BindingException;
+import org.rabix.bindings.Bindings;
+import org.rabix.bindings.BindingsFactory;
+import org.rabix.bindings.ProtocolType;
+import org.rabix.bindings.helper.FileValueHelper;
+import org.rabix.bindings.model.Application;
+import org.rabix.bindings.model.ApplicationPort;
+import org.rabix.bindings.model.DataType;
+import org.rabix.bindings.model.FileValue;
+import org.rabix.bindings.model.Job;
+import org.rabix.bindings.model.Resources;
+import org.rabix.cli.service.LocalDownloadServiceImpl;
+import org.rabix.cli.status.LocalBackendEngineStatusCallback;
+import org.rabix.common.config.ConfigModule;
+import org.rabix.common.helper.JSONHelper;
+import org.rabix.common.json.BeanSerializer;
+import org.rabix.common.jvm.ClasspathScanner;
+import org.rabix.common.logging.VerboseLogger;
+import org.rabix.common.service.download.DownloadService;
+import org.rabix.common.service.upload.UploadService;
+import org.rabix.common.service.upload.impl.NoOpUploadServiceImpl;
+import org.rabix.engine.EngineModule;
+import org.rabix.engine.service.BackendService;
+import org.rabix.engine.service.BootstrapService;
+import org.rabix.engine.service.BootstrapServiceException;
+import org.rabix.engine.service.GarbageCollectionService;
+import org.rabix.engine.service.IntermediaryFilesHandler;
+import org.rabix.engine.service.JobService;
+import org.rabix.engine.service.JobServiceException;
+import org.rabix.engine.service.impl.BackendServiceImpl;
+import org.rabix.engine.service.impl.BootstrapServiceImpl;
+import org.rabix.engine.service.impl.IntermediaryFilesLocalHandler;
+import org.rabix.engine.service.impl.JobReceiverImpl;
+import org.rabix.engine.service.impl.JobServiceImpl;
+import org.rabix.engine.service.impl.NoOpIntermediaryFilesServiceHandler;
+import org.rabix.engine.status.EngineStatusCallback;
+import org.rabix.engine.stub.BackendStubFactory;
+import org.rabix.engine.stub.impl.BackendStubFactoryImpl;
+import org.rabix.transport.mechanism.TransportPlugin.ReceiveCallback;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.inject.AbstractModule;
+import com.google.inject.Guice;
+import com.google.inject.Injector;
+import com.google.inject.Scopes;
+import com.google.inject.TypeLiteral;
 
 /**
  * Local command line executor
@@ -87,17 +119,11 @@ public class BackendCommandLine {
       final String app = commandLine.getArgList().get(0);
 
       Path filePath = null;
-      URI appUri = URI.create(app);
+      URI appUri = URI.create(app.replace(" ", "%20"));
       if (appUri.getScheme() == null) {
-        appUri = new URI("file", appUri.getSchemeSpecificPart(), appUri.getFragment());
+        appUri = new URI("file", Paths.get(".").toAbsolutePath().resolve(appUri.getSchemeSpecificPart()).normalize().toString(), appUri.getFragment());
       }
-
-      if (appUri.getScheme().equals("file")) {
-        filePath = Paths.get("").toAbsolutePath().resolve(appUri.getSchemeSpecificPart());
-      } else {
-        filePath = Paths.get(new URI(appUri.getScheme(), appUri.getSchemeSpecificPart(), null)).toAbsolutePath();
-      }
-
+      filePath = Paths.get(appUri.getPath());
       if (!Files.exists(filePath)) {
         VerboseLogger.log(String.format("Application file %s does not exist.", appUri.toString()));
         printUsageAndExit(posixOptions);
@@ -370,14 +396,11 @@ public class BackendCommandLine {
         if (inputsFile != null) {
           final Path finalInputs = inputsFile;
           FileValueHelper.updateFileValues(commonInputs, (FileValue f) -> {
-            String path = f.getPath();
-            if (path != null && !Paths.get(path).isAbsolute()) {
-              f.setPath(finalInputs.resolveSibling(path).normalize().toString());
-            }
-            String location = f.getLocation();
-            if (location != null && URI.create(location).getScheme() == null) {
-              f.setLocation(finalInputs.resolveSibling(location).normalize().toString());
-            }
+            fixPaths(finalInputs, f);
+            if (f.getSecondaryFiles() != null)
+              for (FileValue sec : f.getSecondaryFiles()) {
+                fixPaths(finalInputs, sec);
+              }
             return f;
           });
         }
@@ -396,6 +419,18 @@ public class BackendCommandLine {
     } catch (JobServiceException | BootstrapServiceException | URISyntaxException e) {
       logger.error("Encountered an error while starting local backend.", e);
       System.exit(10);
+    }
+  }
+
+
+  private static void fixPaths(final Path finalInputs, FileValue f) {
+    String path = f.getPath();
+    if (path != null && !Paths.get(path).isAbsolute()) {
+      f.setPath(finalInputs.resolveSibling(path).normalize().toString());
+    }
+    String location = f.getLocation();
+    if (location != null && URI.create(location).getScheme() == null) {
+      f.setLocation(finalInputs.resolveSibling(location).normalize().toString());
     }
   }
 
@@ -500,7 +535,7 @@ public class BackendCommandLine {
   }
 
   private static void printVersionAndExit(Options posixOptions) {
-    System.out.println("Rabix 1.0.3");
+    System.out.println("Rabix 1.0.4");
     System.exit(0);
   }
 
@@ -511,7 +546,7 @@ public class BackendCommandLine {
     System.exit(10);
   }
 
-  private static File getConfigDir(CommandLine commandLine, Options options) throws IOException {
+  private static File getConfigDir(CommandLine commandLine, Options options) throws IOException, URISyntaxException {
     String configPath = commandLine.getOptionValue("configuration-dir");
     if (configPath != null) {
       File config = new File(configPath);
@@ -521,7 +556,8 @@ public class BackendCommandLine {
         logger.debug("Configuration directory {} doesn't exist or is not a directory.", configPath);
       }
     }
-    File config = new File(new File(BackendCommandLine.class.getProtectionDomain().getCodeSource().getLocation().getPath()).getParentFile().getParentFile() + "/config");
+
+    File config = Paths.get(BackendCommandLine.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent().getParent().toAbsolutePath().normalize().resolve("config").toFile();
 
     logger.debug("Config path: {}", config.getCanonicalPath());
     if (config.exists() && config.isDirectory()) {

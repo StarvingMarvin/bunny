@@ -2,6 +2,10 @@ package org.rabix.bindings.sb;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -152,8 +156,8 @@ public class SBProcessor implements ProtocolProcessor {
     if (resultFile.exists()) {
       String resultStr = FileUtils.readFileToString(resultFile);
       Map<String, Object> result = JSONHelper.readMap(resultStr);
-      postprocessToolCreatedResults(result, hashAlgorithm);
-      return JSONHelper.readMap(resultStr);
+      postprocessToolCreatedResults(result, hashAlgorithm, workingDir.toPath());
+      return result;
     }
 
     Map<String, Object> result = new HashMap<>();
@@ -170,37 +174,30 @@ public class SBProcessor implements ProtocolProcessor {
     return result;
   }
 
-  private void postprocessToolCreatedResults(Object value, HashAlgorithm hashAlgorithm) {
+  private void postprocessToolCreatedResults(Object value, HashAlgorithm hashAlgorithm, Path workDir) {
     if (value == null) {
       return;
     }
     if ((SBSchemaHelper.isFileFromValue(value))) {
-      File file = new File(SBFileValueHelper.getPath(value));
-      if (!file.exists()) {
-        return;
-      }
-      SBFileValueHelper.setSize(file.length(), value);
-
-      if (hashAlgorithm != null) {
-        String checksum = ChecksumHelper.checksum(file, hashAlgorithm);
-        if (checksum != null) {
-          SBFileValueHelper.setChecksum(checksum, value);
-        }
+      try {
+        SBFileValueHelper.buildMissingInfo(value, hashAlgorithm, workDir);
+      } catch (IOException | URISyntaxException e) {
+        logger.error("Couldn't postprocess file: " + value + " : " + e.getMessage());
       }
 
       List<Map<String, Object>> secondaryFiles = SBFileValueHelper.getSecondaryFiles(value);
       if (secondaryFiles != null) {
         for (Object secondaryFile : secondaryFiles) {
-          postprocessToolCreatedResults(secondaryFile, hashAlgorithm);
+          postprocessToolCreatedResults(secondaryFile, hashAlgorithm, workDir);
         }
       }
     } else if (value instanceof List<?>) {
       for (Object subvalue : (List<?>) value) {
-        postprocessToolCreatedResults(subvalue, hashAlgorithm);
+        postprocessToolCreatedResults(subvalue, hashAlgorithm, workDir);
       }
     } else if (value instanceof Map<?, ?>) {
       for (Object subvalue : ((Map<?, ?>) value).values()) {
-        postprocessToolCreatedResults(subvalue, hashAlgorithm);
+        postprocessToolCreatedResults(subvalue, hashAlgorithm, workDir);
       }
     }
   }
@@ -320,8 +317,8 @@ public class SBProcessor implements ProtocolProcessor {
         SBFileValueHelper.setSize(file.length(), fileData);
         SBFileValueHelper.setName(file.getName(), fileData);
         SBFileValueHelper.setPath(file.getAbsolutePath(), fileData);
-
-        List<?> secondaryFiles = getSecondaryFiles(job, hashAlgorithm, fileData, file.getAbsolutePath(), outputBinding);
+        
+        List<?> secondaryFiles = getSecondaryFiles(job, hashAlgorithm, fileData, file.getAbsolutePath(), outputBinding, true);
         if (secondaryFiles != null) {
           SBFileValueHelper.setSecondaryFiles(secondaryFiles, fileData);
         }
@@ -355,7 +352,7 @@ public class SBProcessor implements ProtocolProcessor {
    * Gets secondary files (absolute paths)
    */
   public static List<Map<String, Object>> getSecondaryFiles(SBJob job, HashAlgorithm hashAlgorithm, Map<String, Object> fileValue, String fileName,
-      Object binding) throws SBExpressionException {
+      Object binding, boolean onlyExisting) throws SBExpressionException {
     List<String> secondaryFileSufixes = SBBindingHelper.getSecondaryFiles(binding);
 
     if (secondaryFileSufixes == null) {
@@ -380,20 +377,26 @@ public class SBProcessor implements ProtocolProcessor {
         }
         secondaryFilePath += suffix.startsWith(".") ? suffix : "." + suffix;
       }
-      File secondaryFile = new File(secondaryFilePath);
-      Map<String, Object> secondaryFileMap = new HashMap<>();
-      SBFileValueHelper.setFileType(secondaryFileMap);
-      SBFileValueHelper.setPath(secondaryFile.getAbsolutePath(), secondaryFileMap);
-      SBFileValueHelper.setSize(secondaryFile.length(), secondaryFileMap);
-      SBFileValueHelper.setName(secondaryFile.getName(), secondaryFileMap);
-      if (secondaryFile.exists()) {
-        if (hashAlgorithm != null) {
-          SBFileValueHelper.setChecksum(secondaryFile, secondaryFileMap, hashAlgorithm);
+      try {
+        Path pathToSec = Paths.get(secondaryFilePath);
+        if (Files.exists(pathToSec) || !onlyExisting) {
+          Map<String, Object> file = SBFileValueHelper.pathToRawFile(pathToSec, hashAlgorithm, Paths.get(SBFileValueHelper.getPath(fileValue)));
+          secondaryFileMaps.add(file);
         }
-        secondaryFileMaps.add(secondaryFileMap);
+      } catch (IOException | URISyntaxException e) {
+        logger.error("Couldn't collect secondary file: " + secondaryFilePath);
       }
+
     }
     return secondaryFileMaps;
+  }
+
+  /**
+   * Gets secondary files (absolute paths)
+   */
+  public static List<Map<String, Object>> getSecondaryFiles(SBJob job, HashAlgorithm hashAlgorithm, Map<String, Object> fileValue, String fileName,
+      Object binding) throws SBExpressionException {
+    return getSecondaryFiles(job, hashAlgorithm, fileValue, fileName, binding, true);
   }
 
   @Override
