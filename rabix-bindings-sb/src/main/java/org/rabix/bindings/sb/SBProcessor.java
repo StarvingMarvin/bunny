@@ -156,8 +156,8 @@ public class SBProcessor implements ProtocolProcessor {
     if (resultFile.exists()) {
       String resultStr = FileUtils.readFileToString(resultFile);
       Map<String, Object> result = JSONHelper.readMap(resultStr);
-      postprocessToolCreatedResults(result, hashAlgorithm, workingDir.toPath());
-      return result;
+      postprocessToolCreatedResults(result, hashAlgorithm);
+      return JSONHelper.readMap(resultStr);
     }
 
     Map<String, Object> result = new HashMap<>();
