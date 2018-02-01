@@ -14,6 +14,7 @@ import org.rabix.engine.JobHelper;
 import org.rabix.engine.event.Event;
 import org.rabix.engine.event.impl.InitEvent;
 import org.rabix.engine.event.impl.JobStatusEvent;
+import org.rabix.engine.helper.TerminalOutputsHelper;
 import org.rabix.engine.metrics.MetricsHelper;
 import org.rabix.engine.processor.EventProcessor;
 import org.rabix.engine.service.*;
@@ -49,9 +50,9 @@ public class JobServiceImpl implements JobService {
   private final TransactionHelper transactionHelper;
   private final MetricsHelper metricsHelper;
   private final GarbageCollectionService garbageCollectionService;
+  private final JobRecordService jobRecordService;
 
-  private final LinkRecordService linkRecordService;
-  private final VariableRecordService variableRecordService;
+  private final TerminalOutputsHelper terminalOutputsHelper;
 
   private boolean deleteFilesUponExecution;
   private boolean isLocalBackend;
@@ -76,8 +77,8 @@ public class JobServiceImpl implements JobService {
                         JobHelper jobHelper,
                         MetricsHelper metricsHelper,
                         GarbageCollectionService garbageCollectionService,
-                        LinkRecordService linkRecordService,
-                        VariableRecordService variableRecordService) {
+                        JobRecordService jobRecordService,
+                        TerminalOutputsHelper terminalOutputsHelper) {
     this.dagNodeService = dagNodeService;
     this.appService = appService;
     this.eventProcessor = eventProcessor;
@@ -88,8 +89,8 @@ public class JobServiceImpl implements JobService {
     this.jobHelper = jobHelper;
     this.metricsHelper = metricsHelper;
     this.garbageCollectionService = garbageCollectionService;
-    this.linkRecordService = linkRecordService;
-    this.variableRecordService = variableRecordService;
+    this.jobRecordService = jobRecordService;
+    this.terminalOutputsHelper = terminalOutputsHelper;
 
     setResources = configuration.getBoolean("engine.set_resources", false);
   }
@@ -379,15 +380,8 @@ public class JobServiceImpl implements JobService {
   public void handleJobCompleted(Job job){
     logger.info("Job id: {}, name:{}, rootId: {} is completed.", job.getId(), job.getName(), job.getRootId());
     try{
-      // get all links which are leading to root job
-      List<LinkRecord> linkRecords = linkRecordService.findBySourceAndSourceType(job.getId().toString(), DAGLinkPort.LinkPortType.OUTPUT, job.getRootId());
-      linkRecords.
-          stream().
-          filter(linkRecord -> linkRecord.getDestinationJobId().equals(InternalSchemaHelper.ROOT_NAME)).
-          collect(Collectors.toList());
-      Map<String, Object> terminalOutputs = new HashMap<>();
-      // for links leading to root job find outputs which will be terminal outputs for current job (if the job have any)
-      linkRecords.forEach(linkRecord -> terminalOutputs.put(linkRecord.getDestinationJobPort(), variableRecordService.find(InternalSchemaHelper.ROOT_NAME, linkRecord.getDestinationJobPort(), DAGLinkPort.LinkPortType.OUTPUT, job.getRootId())));
+      // if top level or root then only makes sens to search for terminal outputs
+      Map<String, Object> terminalOutputs = job.isRoot() && job.getParentId().equals(job.getRootId()) ? terminalOutputsHelper.getTerminalOutputs(job.getId().toString(), job.getRootId()) : null;
       engineStatusCallback.onJobCompleted(job.getId(), job.getRootId(), terminalOutputs);
     } catch (EngineStatusCallbackException e) {
       logger.error("Engine status callback failed",e);

@@ -25,6 +25,7 @@ import org.rabix.engine.event.impl.ContextStatusEvent;
 import org.rabix.engine.event.impl.InputUpdateEvent;
 import org.rabix.engine.event.impl.JobStatusEvent;
 import org.rabix.engine.event.impl.OutputUpdateEvent;
+import org.rabix.engine.helper.TerminalOutputsHelper;
 import org.rabix.engine.processor.EventProcessor;
 import org.rabix.engine.processor.handler.EventHandler;
 import org.rabix.engine.processor.handler.EventHandlerException;
@@ -55,6 +56,7 @@ public class JobStatusEventHandler implements EventHandler<JobStatusEvent> {
   private final VariableRecordService variableRecordService;
   private final ContextRecordService contextRecordService;
   private final JobStatsRecordService jobStatsRecordService;
+  private final TerminalOutputsHelper terminalOutputsHelper;
 
   private final JobRepository jobRepository;
   private final JobService jobService;
@@ -64,11 +66,11 @@ public class JobStatusEventHandler implements EventHandler<JobStatusEvent> {
 
   @Inject
   public JobStatusEventHandler(final DAGNodeService dagNodeService, final AppService appService,
-      final JobRecordService jobRecordService, final LinkRecordService linkRecordService,
-      final VariableRecordService variableRecordService, final ContextRecordService contextRecordService,
-      final EventProcessor eventProcessor, final ScatterHandler scatterHelper, final JobRepository jobRepository,
-      final JobService jobService, final JobStatsRecordService jobStatsRecordService,
-      final Configuration configuration, final JobHelper jobHelper) {
+                               final JobRecordService jobRecordService, final LinkRecordService linkRecordService,
+                               final VariableRecordService variableRecordService, final ContextRecordService contextRecordService,
+                               final EventProcessor eventProcessor, final ScatterHandler scatterHelper, final JobRepository jobRepository,
+                               final JobService jobService, final JobStatsRecordService jobStatsRecordService,
+                               final Configuration configuration, final JobHelper jobHelper, final TerminalOutputsHelper terminalOutputsHelper) {
     this.dagNodeService = dagNodeService;
     this.scatterHelper = scatterHelper;
     this.eventProcessor = eventProcessor;
@@ -80,6 +82,7 @@ public class JobStatusEventHandler implements EventHandler<JobStatusEvent> {
     this.appService = appService;
     this.jobService = jobService;
     this.jobHelper = jobHelper;
+    this.terminalOutputsHelper = terminalOutputsHelper;
 
     this.jobRepository = jobRepository;
     this.setResources = configuration.getBoolean("engine.set_resources", false);
@@ -248,17 +251,9 @@ public class JobStatusEventHandler implements EventHandler<JobStatusEvent> {
     if (mode == EventHandlingMode.REPLAY) {
       return;
     }
-    List<LinkRecord> rootLinks = linkRecordService
-            .findBySourceAndSourceType(jobRecord.getId(), LinkPortType.OUTPUT, jobRecord.getRootId())
-            .stream()
-            .filter(p -> p.getDestinationJobId().equals(InternalSchemaHelper.ROOT_NAME))
-            .collect(Collectors.toList());
-
-    Map<String, Object> outs = new HashMap<>();
-    rootLinks.forEach(link -> outs.put(link.getDestinationJobPort(), variableRecordService.find(InternalSchemaHelper.ROOT_NAME, link.getDestinationJobPort(), LinkPortType.OUTPUT, jobRecord.getRootId()).getValue()));
-
-    if (!outs.isEmpty()) {
-      jobService.handleJobRootPartiallyCompleted(jobRecord.getRootId(), outs, jobRecord.getExternalId());
+    Map<String, Object> terminalOutputs = terminalOutputsHelper.getTerminalOutputs(jobRecord.getId(), jobRecord.getRootId());
+    if (!terminalOutputs.isEmpty()) {
+      jobService.handleJobRootPartiallyCompleted(jobRecord.getRootId(), terminalOutputs, jobRecord.getExternalId());
     }
   }
 
