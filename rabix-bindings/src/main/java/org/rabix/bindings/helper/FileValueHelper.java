@@ -2,6 +2,7 @@ package org.rabix.bindings.helper;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -31,7 +32,9 @@ import org.rabix.common.helper.CloneHelper;
 public class FileValueHelper {
 
   /**
-   * Creates copy of value (in common format) in which all FileValues are updated using fileTransformer
+   * Creates copy of value (in common format) in which all FileValues are updated using
+   * fileTransformer
+   * 
    * @param value
    * @param fileTransformer
    * @return copy of value with replaced FileValues
@@ -60,6 +63,7 @@ public class FileValueHelper {
 
   /**
    * Parses value (in common format) and extracts all FileValue objects
+   * 
    * @param value
    * @return List of FileValue objects
    */
@@ -70,7 +74,7 @@ public class FileValueHelper {
         ret.addAll(getFilesFromValue(o));
       }
     } else if (value instanceof FileValue) {
-      ret.add((FileValue)value);
+      ret.add((FileValue) value);
     } else if (value instanceof Map) {
       for (Object key : ((Map<?, ?>) value).keySet()) {
         ret.addAll(getFilesFromValue(((Map<?, ?>) value).get(key)));
@@ -81,11 +85,12 @@ public class FileValueHelper {
 
   /**
    * Reads the type of input value (in common format)
+   * 
    * @param value
    * @return DataType object that represents value's type
    */
   public static DataType getDataTypeFromValue(Object value) {
-    if (value==null)
+    if (value == null)
       return new DataType(DataType.Type.NULL);
 
     // DIRECTORY
@@ -96,11 +101,11 @@ public class FileValueHelper {
     if (value instanceof FileValue)
       return new DataType(DataType.Type.FILE);
 
-    //ARRAY
+    // ARRAY
     if (value instanceof List) {
       Set<DataType> arrayTypes = new HashSet<>();
       DataType arrayType;
-      for (Object element: (List<?>)value) {
+      for (Object element : (List<?>) value) {
         arrayTypes.add(getDataTypeFromValue(element));
       }
 
@@ -118,15 +123,15 @@ public class FileValueHelper {
     if (value instanceof Map) {
       Map<String, DataType> subTypes = new HashMap<>();
       Map<?, ?> valueMap = (Map<?, ?>) value;
-      for (Object key: valueMap.keySet()) {
-        subTypes.put((String)key, getDataTypeFromValue(valueMap.get(key)));
+      for (Object key : valueMap.keySet()) {
+        subTypes.put((String) key, getDataTypeFromValue(valueMap.get(key)));
       }
       return new DataType(DataType.Type.RECORD, subTypes);
     }
 
     // PRIMITIVE
     for (DataType.Type t : DataType.Type.values()) {
-      if (t.primitiveTypes !=null && t.isPrimitive(value))
+      if (t.primitiveTypes != null && t.isPrimitive(value))
         return new DataType(t, value);
     }
 
@@ -136,15 +141,15 @@ public class FileValueHelper {
   /**
    * Maps input file paths using the particular {@link FilePathMapper}
    *
-   * @param job         Job object
-   * @param fileMapper  FileMapper object
-   * @return            Updated Job object
+   * @param job Job object
+   * @param fileMapper FileMapper object
+   * @return Updated Job object
    * @throws BindingException
    */
   @SuppressWarnings("unchecked")
   public static Job mapInputFilePaths(Job job, FilePathMapper fileMapper) throws BindingException {
     Map<String, Object> inputs = job.getInputs();
-    
+
     Map<String, Object> clonedInputs = (Map<String, Object>) CloneHelper.deepCopy(inputs);
     try {
       mapValue(clonedInputs, fileMapper, job.getConfig());
@@ -157,15 +162,15 @@ public class FileValueHelper {
   /**
    * Maps output file paths using the particular {@link FilePathMapper}
    *
-   * @param job         Job object
-   * @param fileMapper  FileMapper object
-   * @return            Updated Job object
+   * @param job Job object
+   * @param fileMapper FileMapper object
+   * @return Updated Job object
    * @throws BindingException
    */
   @SuppressWarnings("unchecked")
   public static Job mapOutputFilePaths(Job job, FilePathMapper fileMapper) throws BindingException {
     Map<String, Object> outputs = job.getOutputs();
-    
+
     Map<String, Object> clonedOutputs = (Map<String, Object>) CloneHelper.deepCopy(outputs);
     try {
       mapValue(clonedOutputs, fileMapper, job.getConfig());
@@ -174,7 +179,7 @@ public class FileValueHelper {
     }
     return Job.cloneWithOutputs(job, clonedOutputs);
   }
-  
+
   @SuppressWarnings("unchecked")
   private static void mapValue(Object value, FilePathMapper fileMapper, Map<String, Object> config) throws FileMappingException {
     if (value instanceof FileValue || value instanceof DirectoryValue) {
@@ -210,12 +215,12 @@ public class FileValueHelper {
       }
     }
   }
-  
+
   /**
    * Gets a set of input {@link FileValue} objects with their secondary files
    *
-   * @param job         Job object
-   * @return            FileValue objects
+   * @param job Job object
+   * @return FileValue objects
    * @throws BindingException
    */
   public static Set<FileValue> getInputFiles(Job job) throws BindingException {
@@ -225,8 +230,8 @@ public class FileValueHelper {
   /**
    * Gets a set of output {@link FileValue} objects with their secondary files
    *
-   * @param job                 Job object
-   * @return                    FileValue objects
+   * @param job Job object
+   * @return FileValue objects
    * @throws BindingException
    */
   public static Set<FileValue> getOutputFiles(Job job) throws BindingException {
@@ -254,13 +259,13 @@ public class FileValueHelper {
     }
     return fileValues;
   }
-  
+
   /**
    * Updates input files
    *
-   * @param job             Job object
+   * @param job Job object
    * @param fileTransformer FileTransformer that transforms old file values into new ones
-   * @return                Updated Job object
+   * @return Updated Job object
    * @throws BindingException
    */
   @SuppressWarnings("unchecked")
@@ -269,13 +274,13 @@ public class FileValueHelper {
     clonedInputs = (Map<String, Object>) updateFileValues(clonedInputs, fileTransformer);
     return Job.cloneWithInputs(job, clonedInputs);
   }
-  
+
   /**
    * Updates output files
    *
-   * @param job             Job object
+   * @param job Job object
    * @param fileTransformer FileTransformer that transforms old file values into new ones
-   * @return                Updated Job object
+   * @return Updated Job object
    * @throws BindingException
    */
   @SuppressWarnings("unchecked")
@@ -284,7 +289,7 @@ public class FileValueHelper {
     clonedOutputs = (Map<String, Object>) updateFileValues(clonedOutputs, fileTransformer);
     return Job.cloneWithOutputs(job, clonedOutputs);
   }
-  
+
   public static Job stageFileRequirements(Job job, FileRequirement fileRequirementResource, Path workingDir, FilePathMapper inputFileMapper)
       throws FileMappingException, IOException {
     if (fileRequirementResource == null) {
@@ -314,13 +319,19 @@ public class FileValueHelper {
           }
           return job;
         }
-
-        URI location = URI.create(content.getLocation());
-        String path = location.getScheme() != null ? Paths.get(location).toString() : content.getPath();
-        String mappedPath = inputFileMapper.map(path, job.getConfig());
-        stagedFiles.put(path, destinationFile);
-        Path file = Paths.get(mappedPath);
-
+        Path file = null;
+        String loc = content.getLocation();
+        URI location = URI.create(loc);
+        String path;
+        try {
+          path = loc != null ? Paths.get(new URI(location.getScheme() == null ? "file" : location.getScheme(), location.getPath(), null)).toString()
+              : content.getPath();
+          String mappedPath = inputFileMapper.map(path, job.getConfig());
+          stagedFiles.put(path, destinationFile);
+          file = Paths.get(mappedPath);
+        } catch (URISyntaxException e) {
+          throw new IOException(e);
+        }
         if (!Files.exists(file)) {
           continue;
         }
