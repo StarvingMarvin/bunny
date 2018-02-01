@@ -12,7 +12,7 @@ public interface EngineStatusCallback {
 
   void onJobsReady(Set<Job> jobs, UUID rootId, UUID producedByNode) throws EngineStatusCallbackException;
 
-  void onJobCompleted(UUID jobId, UUID rootId) throws EngineStatusCallbackException;
+  void onJobCompleted(UUID jobId, UUID rootId, Map<String, Object> terminalOutputs) throws EngineStatusCallbackException;
 
   void onJobFailed(UUID jobId, UUID rootId) throws EngineStatusCallbackException;
 

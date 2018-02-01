@@ -172,12 +172,12 @@ public class JobStatusEventHandler implements EventHandler<JobStatusEvent> {
         eventProcessor.send(new ContextStatusEvent(event.getContextId(), ContextStatus.COMPLETED));
         try {
           Job rootJob = jobHelper.createJob(jobRecord, JobStatus.COMPLETED, event.getResult());
-          if(!jobRecord.isContainer())
+          if(!jobRecord.isContainer()) {
             jobService.handleJobRootPartiallyCompleted(jobRecord.getRootId(), rootJob.getOutputs(), jobRecord.getExternalId());
+          }
           jobService.handleJobRootCompleted(rootJob);
         } catch (BindingException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+          logger.error("Binding exception occurred", e);
         }
       } else {
         if (!jobRecord.isScattered()) {
@@ -185,6 +185,7 @@ public class JobStatusEventHandler implements EventHandler<JobStatusEvent> {
           try {
             jobService.handleJobCompleted(jobHelper.createJob(jobRecord, JobStatus.COMPLETED, event.getResult()));
           } catch (BindingException e) {
+            logger.error("Handling job completed failed", e);
           }
         }
       }

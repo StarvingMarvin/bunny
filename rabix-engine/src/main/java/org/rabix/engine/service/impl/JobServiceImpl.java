@@ -7,6 +7,7 @@ import org.rabix.bindings.Bindings;
 import org.rabix.bindings.BindingsFactory;
 import org.rabix.bindings.model.Job;
 import org.rabix.bindings.model.Job.JobStatus;
+import org.rabix.bindings.model.dag.DAGLinkPort;
 import org.rabix.bindings.model.dag.DAGNode;
 import org.rabix.common.helper.InternalSchemaHelper;
 import org.rabix.engine.JobHelper;
@@ -19,6 +20,8 @@ import org.rabix.engine.service.*;
 import org.rabix.engine.status.EngineStatusCallback;
 import org.rabix.engine.status.EngineStatusCallbackException;
 import org.rabix.engine.store.model.JobRecord;
+import org.rabix.engine.store.model.LinkRecord;
+import org.rabix.engine.store.model.VariableRecord;
 import org.rabix.engine.store.repository.JobRepository;
 import org.rabix.engine.store.repository.JobRepository.JobEntity;
 import org.rabix.engine.store.repository.TransactionHelper;
@@ -47,6 +50,9 @@ public class JobServiceImpl implements JobService {
   private final MetricsHelper metricsHelper;
   private final GarbageCollectionService garbageCollectionService;
 
+  private final LinkRecordService linkRecordService;
+  private final VariableRecordService variableRecordService;
+
   private boolean deleteFilesUponExecution;
   private boolean isLocalBackend;
 
@@ -69,7 +75,9 @@ public class JobServiceImpl implements JobService {
                         IntermediaryFilesService intermediaryFilesService,
                         JobHelper jobHelper,
                         MetricsHelper metricsHelper,
-                        GarbageCollectionService garbageCollectionService) {
+                        GarbageCollectionService garbageCollectionService,
+                        LinkRecordService linkRecordService,
+                        VariableRecordService variableRecordService) {
     this.dagNodeService = dagNodeService;
     this.appService = appService;
     this.eventProcessor = eventProcessor;
@@ -80,6 +88,8 @@ public class JobServiceImpl implements JobService {
     this.jobHelper = jobHelper;
     this.metricsHelper = metricsHelper;
     this.garbageCollectionService = garbageCollectionService;
+    this.linkRecordService = linkRecordService;
+    this.variableRecordService = variableRecordService;
 
     setResources = configuration.getBoolean("engine.set_resources", false);
   }
@@ -297,6 +307,7 @@ public class JobServiceImpl implements JobService {
     job = jobHelper.fillOutputs(job);
     jobRepository.update(job);
     try {
+      // TODO: add jobId and all terminal outputs?
       engineStatusCallback.onJobRootCompleted(job.getRootId());
     } catch (EngineStatusCallbackException e) {
       logger.error("Engine status callback failed", e);
@@ -368,7 +379,16 @@ public class JobServiceImpl implements JobService {
   public void handleJobCompleted(Job job){
     logger.info("Job id: {}, name:{}, rootId: {} is completed.", job.getId(), job.getName(), job.getRootId());
     try{
-      engineStatusCallback.onJobCompleted(job.getId(), job.getRootId());
+      // get all links which are leading to root job
+      List<LinkRecord> linkRecords = linkRecordService.findBySourceAndSourceType(job.getId().toString(), DAGLinkPort.LinkPortType.OUTPUT, job.getRootId());
+      linkRecords.
+          stream().
+          filter(linkRecord -> linkRecord.getDestinationJobId().equals(InternalSchemaHelper.ROOT_NAME)).
+          collect(Collectors.toList());
+      Map<String, Object> terminalOutputs = new HashMap<>();
+      // for links leading to root job find outputs which will be terminal outputs for current job (if the job have any)
+      linkRecords.forEach(linkRecord -> terminalOutputs.put(linkRecord.getDestinationJobPort(), variableRecordService.find(InternalSchemaHelper.ROOT_NAME, linkRecord.getDestinationJobPort(), DAGLinkPort.LinkPortType.OUTPUT, job.getRootId())));
+      engineStatusCallback.onJobCompleted(job.getId(), job.getRootId(), terminalOutputs);
     } catch (EngineStatusCallbackException e) {
       logger.error("Engine status callback failed",e);
     }
