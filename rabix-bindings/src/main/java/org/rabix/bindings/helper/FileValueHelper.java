@@ -1,5 +1,10 @@
 package org.rabix.bindings.helper;
 
+import java.io.IOException;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -7,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.io.FileUtils;
 import org.rabix.bindings.BindingException;
 import org.rabix.bindings.mapper.FileMappingException;
 import org.rabix.bindings.mapper.FilePathMapper;
@@ -14,6 +20,11 @@ import org.rabix.bindings.model.DataType;
 import org.rabix.bindings.model.DirectoryValue;
 import org.rabix.bindings.model.FileValue;
 import org.rabix.bindings.model.Job;
+import org.rabix.bindings.model.requirement.FileRequirement;
+import org.rabix.bindings.model.requirement.FileRequirement.SingleFileRequirement;
+import org.rabix.bindings.model.requirement.FileRequirement.SingleInputDirectoryRequirement;
+import org.rabix.bindings.model.requirement.FileRequirement.SingleInputFileRequirement;
+import org.rabix.bindings.model.requirement.FileRequirement.SingleTextFileRequirement;
 import org.rabix.bindings.transformer.FileTransformer;
 import org.rabix.common.helper.CloneHelper;
 
@@ -273,4 +284,72 @@ public class FileValueHelper {
     clonedOutputs = (Map<String, Object>) updateFileValues(clonedOutputs, fileTransformer);
     return Job.cloneWithOutputs(job, clonedOutputs);
   }
+  
+  public static Job stageFileRequirements(Job job, FileRequirement fileRequirementResource, Path workingDir, FilePathMapper inputFileMapper)
+      throws FileMappingException, IOException {
+    if (fileRequirementResource == null) {
+      return job;
+    }
+
+    List<SingleFileRequirement> fileRequirements = fileRequirementResource.getFileRequirements();
+    if (fileRequirements == null) {
+      return job;
+    }
+
+    Map<String, Path> stagedFiles = new HashMap<>();
+
+    for (SingleFileRequirement fileRequirement : fileRequirements) {
+      Path destinationFile = workingDir.resolve(fileRequirement.getFilename());
+      if (fileRequirement instanceof SingleTextFileRequirement) {
+        Files.write(destinationFile, ((SingleTextFileRequirement) fileRequirement).getContent().getBytes());
+        continue;
+      }
+      if (fileRequirement instanceof SingleInputFileRequirement || fileRequirement instanceof SingleInputDirectoryRequirement) {
+        FileValue content = ((SingleInputFileRequirement) fileRequirement).getContent();
+        if (FileValue.isLiteral(content)) {
+          if (fileRequirement instanceof SingleInputDirectoryRequirement) {
+            Files.createDirectories(destinationFile);
+          } else {
+            Files.createFile(destinationFile);
+          }
+          return job;
+        }
+
+        URI location = URI.create(content.getLocation());
+        String path = location.getScheme() != null ? Paths.get(location).toString() : content.getPath();
+        String mappedPath = inputFileMapper.map(path, job.getConfig());
+        stagedFiles.put(path, destinationFile);
+        Path file = Paths.get(mappedPath);
+
+        if (!Files.exists(file)) {
+          continue;
+        }
+        boolean isLinkEnabled = ((SingleInputFileRequirement) fileRequirement).isLinkEnabled();
+        if (!Files.isDirectory(file)) {
+          if (isLinkEnabled) {
+            Files.createLink(destinationFile, file); // use hard link
+          } else {
+            Files.copy(file, destinationFile); // use copy
+          }
+        } else {
+          FileUtils.copyDirectory(file.toFile(), destinationFile.toFile()); // use copy
+        }
+      }
+    }
+
+    try {
+      job = FileValueHelper.updateInputFiles(job, fileValue -> {
+        if (stagedFiles.containsKey(fileValue.getPath())) {
+          Path path = stagedFiles.get(fileValue.getPath());
+          fileValue.setPath(path.toString());
+          fileValue.setLocation(path.toUri().toString());
+        }
+        return fileValue;
+      });
+    } catch (BindingException e) {
+      throw new FileMappingException(e);
+    }
+    return job;
+  }
+
 }
