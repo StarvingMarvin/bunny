@@ -65,6 +65,9 @@ public class CWLFilePathMapProcessorCallback implements CWLPortProcessorCallback
         }
         if (path.charAt(path.length() - 1) == '/')
           CWLFileValueHelper.setPath(path.substring(0, path.length() - 1), clonedValue);
+        String location = CWLFileValueHelper.getLocation(clonedValue);
+        if (location.charAt(location.length() - 1) == '/')
+          CWLFileValueHelper.setLocation(location.substring(0, location.length() - 1), clonedValue);
       }
       return clonedValue;
     }
