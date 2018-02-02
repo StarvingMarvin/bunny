@@ -381,7 +381,7 @@ public class JobServiceImpl implements JobService {
     logger.info("Job id: {}, name:{}, rootId: {} is completed.", job.getId(), job.getName(), job.getRootId());
     try{
       // if top level or root then only makes sens to search for terminal outputs
-      Map<String, Object> terminalOutputs = job.isRoot() && job.getParentId().equals(job.getRootId()) ? terminalOutputsHelper.getTerminalOutputs(job.getId().toString(), job.getRootId()) : null;
+      Map<String, Object> terminalOutputs = job.isRoot() || job.getParentId().equals(job.getRootId()) ? terminalOutputsHelper.getTerminalOutputs(job.getId().toString(), job.getRootId()) : null;
       engineStatusCallback.onJobCompleted(job.getId(), job.getRootId(), terminalOutputs);
     } catch (EngineStatusCallbackException e) {
       logger.error("Engine status callback failed",e);
