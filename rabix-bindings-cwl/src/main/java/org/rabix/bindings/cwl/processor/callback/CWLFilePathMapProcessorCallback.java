@@ -43,33 +43,32 @@ public class CWLFilePathMapProcessorCallback implements CWLPortProcessorCallback
   @SuppressWarnings("unchecked")
   private Object mapSingleFile(Object value) throws FileMappingException {
     if (CWLSchemaHelper.isFileFromValue(value) || CWLSchemaHelper.isDirectoryFromValue(value)) {
-      Object clonedValue = CloneHelper.deepCopy(value);
-      String path = CWLFileValueHelper.getPath(clonedValue);
+      String path = CWLFileValueHelper.getPath(value);
       if (StringUtils.isEmpty(path)) { // file literals
         return value;
       }
 
-      CWLFileValueHelper.setPath(filePathMapper.map(path, config), clonedValue);
+      CWLFileValueHelper.setPath(filePathMapper.map(path, config), value);
       
-      List<Map<String, Object>> secondaryFiles = CWLFileValueHelper.getSecondaryFiles(clonedValue);
+      List<Map<String, Object>> secondaryFiles = CWLFileValueHelper.getSecondaryFiles(value);
       if (secondaryFiles != null) {
         for (Map<String, Object> secondaryFileValue : secondaryFiles) {
-          CWLFileValueHelper.setPath(filePathMapper.map(CWLFileValueHelper.getPath(secondaryFileValue), config), secondaryFileValue);
+          mapSingleFile(secondaryFileValue);
         }
       }
 
       if (CWLSchemaHelper.isDirectoryFromValue(value)) {
-        List<Object> listingObjs = CWLDirectoryValueHelper.getListing(clonedValue);
+        List<Object> listingObjs = CWLDirectoryValueHelper.getListing(value);
         for (Object listingObj : listingObjs) {
           mapSingleFile(listingObj);
         }
         if (path.charAt(path.length() - 1) == '/')
-          CWLFileValueHelper.setPath(path.substring(0, path.length() - 1), clonedValue);
-        String location = CWLFileValueHelper.getLocation(clonedValue);
+          CWLFileValueHelper.setPath(path.substring(0, path.length() - 1), value);
+        String location = CWLFileValueHelper.getLocation(value);
         if (location.charAt(location.length() - 1) == '/')
-          CWLFileValueHelper.setLocation(location.substring(0, location.length() - 1), clonedValue);
+          CWLFileValueHelper.setLocation(location.substring(0, location.length() - 1), value);
       }
-      return clonedValue;
+      return value;
     }
     return value;
   }
