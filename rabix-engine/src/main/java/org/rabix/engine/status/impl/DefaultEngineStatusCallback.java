@@ -47,7 +47,7 @@ public class DefaultEngineStatusCallback implements EngineStatusCallback {
   }
 
   @Override
-  public void onJobRootCompleted(UUID rootId) throws EngineStatusCallbackException {
+  public void onJobRootCompleted(UUID rootId, Map<String, Object> terminalOutputs) throws EngineStatusCallbackException {
     logger.debug("onJobRootCompleted(jobId={})", rootId);
   }
 

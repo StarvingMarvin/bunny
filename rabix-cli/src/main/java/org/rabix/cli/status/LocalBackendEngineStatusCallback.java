@@ -32,7 +32,7 @@ public class LocalBackendEngineStatusCallback extends DefaultEngineStatusCallbac
 
     @Override
     @SuppressWarnings("unchecked")
-    public void onJobRootCompleted(UUID rootId) throws EngineStatusCallbackException {
+    public void onJobRootCompleted(UUID rootId, Map<String, Object> terminalOutputs) throws EngineStatusCallbackException {
         Job rootJob = jobService.get(rootId);
         if (rootJob.getStatus().equals(Job.JobStatus.COMPLETED)) {
             try {

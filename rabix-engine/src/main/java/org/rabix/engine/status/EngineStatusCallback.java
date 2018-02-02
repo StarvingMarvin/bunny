@@ -18,7 +18,7 @@ public interface EngineStatusCallback {
 
   void onJobContainerReady(UUID id, UUID rootId) throws EngineStatusCallbackException;
 
-  void onJobRootCompleted(UUID rootId) throws EngineStatusCallbackException;
+  void onJobRootCompleted(UUID rootId, Map<String, Object> terminalOutputs) throws EngineStatusCallbackException;
 
   void onJobRootPartiallyCompleted(UUID rootId, Map<String, Object> outputs, UUID producedBy) throws EngineStatusCallbackException;
 

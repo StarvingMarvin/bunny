@@ -100,7 +100,7 @@ public class EngineModuleTest {
 
     ArgumentCaptor<UUID> rootId = ArgumentCaptor.forClass(UUID.class);
 
-    verify(esc, times(1)).onJobRootCompleted(rootId.capture());
+    verify(esc, times(1)).onJobRootCompleted(rootId.capture(), job.getValue().getOutputs());
 
     // verify(esc, times(1)).onJobCompleted(job.capture());
     assertTrue(job.getValue().getOutputs().isEmpty());
