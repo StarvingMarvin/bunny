@@ -63,6 +63,8 @@ public class CWLFilePathMapProcessorCallback implements CWLPortProcessorCallback
         for (Object listingObj : listingObjs) {
           mapSingleFile(listingObj);
         }
+        if (path.charAt(path.length() - 1) == '/')
+          CWLFileValueHelper.setPath(path.substring(0, path.length() - 1), clonedValue);
       }
       return clonedValue;
     }
