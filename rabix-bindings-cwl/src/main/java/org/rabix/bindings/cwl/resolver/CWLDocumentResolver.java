@@ -276,7 +276,8 @@ public class CWLDocumentResolver {
       return null;
     }
 
-    namespace(currentNode);
+    if(!namespaces.isEmpty())
+      namespace(currentNode);
 
     boolean isReference = currentNode.has(RESOLVER_REFERENCE_KEY);
     boolean appReference = currentNode.has(APP_STEP_KEY) && currentNode.get(APP_STEP_KEY).isTextual();
