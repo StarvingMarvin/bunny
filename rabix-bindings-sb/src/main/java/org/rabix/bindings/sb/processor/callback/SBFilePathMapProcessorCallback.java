@@ -1,8 +1,11 @@
 package org.rabix.bindings.sb.processor.callback;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
+import org.rabix.bindings.mapper.FileMappingException;
 import org.rabix.bindings.mapper.FilePathMapper;
 import org.rabix.bindings.model.ApplicationPort;
 import org.rabix.bindings.sb.helper.SBFileValueHelper;
@@ -36,14 +39,13 @@ public class SBFilePathMapProcessorCallback implements SBPortProcessorCallback {
         String path = SBFileValueHelper.getPath(valueMap);
 
         if (path != null && filePathMapper != null) {
-          SBFileValueHelper.setPath(filePathMapper.map(path, config), valueMap);
+          mapAllValues(clonedValue);
 
           List<Map<String, Object>> secondaryFiles = SBFileValueHelper.getSecondaryFiles(valueMap);
 
           if (secondaryFiles != null) {
             for (Map<String, Object> secondaryFile : secondaryFiles) {
-              String secondaryFilePath = SBFileValueHelper.getPath(secondaryFile);
-              SBFileValueHelper.setPath(filePathMapper.map(secondaryFilePath, config), secondaryFile);
+              mapAllValues(secondaryFile);
             }
           }
           return new SBPortProcessorResult(valueMap, true);
@@ -55,5 +57,11 @@ public class SBFilePathMapProcessorCallback implements SBPortProcessorCallback {
     }
     
   }
-
+  private void mapAllValues(Object secondaryFileValue) throws FileMappingException {
+    String mappedValue = filePathMapper.map(SBFileValueHelper.getPath(secondaryFileValue), config);
+    SBFileValueHelper.setPath(mappedValue, secondaryFileValue);
+    Path pathObj = Paths.get(mappedValue);
+    SBFileValueHelper.setLocation(pathObj.toUri().toString(), secondaryFileValue);
+    SBFileValueHelper.setDirname(pathObj.getParent().toString(), secondaryFileValue);
+  }
 }

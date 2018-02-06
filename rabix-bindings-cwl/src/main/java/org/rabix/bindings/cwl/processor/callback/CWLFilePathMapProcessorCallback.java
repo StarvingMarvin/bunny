@@ -1,5 +1,7 @@
 package org.rabix.bindings.cwl.processor.callback;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
@@ -40,6 +42,8 @@ public class CWLFilePathMapProcessorCallback implements CWLPortProcessorCallback
     }
   }
   
+  
+  
   @SuppressWarnings("unchecked")
   private Object mapSingleFile(Object value) throws FileMappingException {
     if (CWLSchemaHelper.isFileFromValue(value) || CWLSchemaHelper.isDirectoryFromValue(value)) {
@@ -50,23 +54,32 @@ public class CWLFilePathMapProcessorCallback implements CWLPortProcessorCallback
       }
 
       CWLFileValueHelper.setPath(filePathMapper.map(path, config), clonedValue);
+      mapAllValues(clonedValue);
       
       List<Map<String, Object>> secondaryFiles = CWLFileValueHelper.getSecondaryFiles(clonedValue);
       if (secondaryFiles != null) {
         for (Map<String, Object> secondaryFileValue : secondaryFiles) {
-          CWLFileValueHelper.setPath(filePathMapper.map(CWLFileValueHelper.getPath(secondaryFileValue), config), secondaryFileValue);
+          mapAllValues(secondaryFileValue);
         }
       }
 
       if (CWLSchemaHelper.isDirectoryFromValue(value)) {
         List<Object> listingObjs = CWLDirectoryValueHelper.getListing(clonedValue);
         for (Object listingObj : listingObjs) {
-          mapSingleFile(listingObj);
+          mapAllValues(listingObj);
         }
       }
       return clonedValue;
     }
     return value;
+  }
+
+  private void mapAllValues(Object secondaryFileValue) throws FileMappingException {
+    String mappedValue = filePathMapper.map(CWLFileValueHelper.getPath(secondaryFileValue), config);
+    CWLFileValueHelper.setPath(mappedValue, secondaryFileValue);
+    Path pathObj = Paths.get(mappedValue);
+    CWLFileValueHelper.setLocation(pathObj.toUri().toString(), secondaryFileValue);
+    CWLFileValueHelper.setDirname(pathObj.getParent().toString(), secondaryFileValue);
   }
 
 }
