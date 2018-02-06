@@ -7,6 +7,7 @@ import org.rabix.common.helper.InternalSchemaHelper;
 import org.rabix.engine.service.LinkRecordService;
 import org.rabix.engine.service.VariableRecordService;
 import org.rabix.engine.store.model.LinkRecord;
+import org.rabix.engine.store.model.VariableRecord;
 
 import java.util.HashMap;
 import java.util.List;
@@ -37,11 +38,15 @@ public class TerminalOutputsHelper {
         collect(Collectors.toList());
     Map<String, Object> terminalOutputs = new HashMap<>();
     // for links leading to root job find outputs which will be terminal outputs for current job (if the job have any)
-    linkRecords.forEach(
-        linkRecord -> terminalOutputs.put(linkRecord.getDestinationJobPort(),
-                                          variableRecordService.find(InternalSchemaHelper.ROOT_NAME,
-                                                                     linkRecord.getDestinationJobPort(),
-                                                                     DAGLinkPort.LinkPortType.OUTPUT, rootId).getValue()));
+
+    for(LinkRecord linkRecord : linkRecords){
+      VariableRecord variableRecord =  variableRecordService.find(InternalSchemaHelper.ROOT_NAME,
+                                                                  linkRecord.getDestinationJobPort(),
+                                                                  DAGLinkPort.LinkPortType.OUTPUT, rootId);
+      if(variableRecord != null){
+        terminalOutputs.put(linkRecord.getDestinationJobPort(), variableRecord.getValue());
+      }
+    }
     return terminalOutputs;
   }
 }
