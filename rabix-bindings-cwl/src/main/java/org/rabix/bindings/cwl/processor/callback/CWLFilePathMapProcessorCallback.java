@@ -52,8 +52,6 @@ public class CWLFilePathMapProcessorCallback implements CWLPortProcessorCallback
       if (StringUtils.isEmpty(path)) { // file literals
         return value;
       }
-
-      CWLFileValueHelper.setPath(filePathMapper.map(path, config), clonedValue);
       mapAllValues(clonedValue);
       
       List<Map<String, Object>> secondaryFiles = CWLFileValueHelper.getSecondaryFiles(clonedValue);

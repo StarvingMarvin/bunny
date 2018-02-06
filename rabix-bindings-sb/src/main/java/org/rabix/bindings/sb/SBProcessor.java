@@ -2,7 +2,6 @@ package org.rabix.bindings.sb;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -117,7 +116,7 @@ public class SBProcessor implements ProtocolProcessor {
   }
 
   @Override
-  public Job postprocess(Job job, File workingDir, HashAlgorithm hashAlgorithm, FilePathMapper executionFilePathMapper) throws BindingException {
+  public Job postprocess(Job job, File workingDir, HashAlgorithm hashAlgorithm, FilePathMapper logFilePathMapper) throws BindingException {
     SBJob sbJob = SBJobHelper.getSBJob(job);
     try {
       Map<String, Object> outputs = null;
@@ -130,14 +129,9 @@ public class SBProcessor implements ProtocolProcessor {
           throw new BindingException("Failed to populate outputs", e);
         }
       } else {
-        outputs = collectOutputs(sbJob, workingDir, hashAlgorithm, executionFilePathMapper, job.getConfig());
+        outputs = collectOutputs(sbJob, workingDir, hashAlgorithm, logFilePathMapper, job.getConfig());
       }
 
-      if (executionFilePathMapper != null) {
-        Map<String, Object> mappedInputs = new SBPortProcessor(sbJob).processInputs(sbJob.getInputs(),
-            new SBFilePathMapProcessorCallback(executionFilePathMapper, job.getConfig()));
-        sbJob.setInputs(mappedInputs);
-      }
       outputs = new SBPortProcessorHelper(sbJob).fixOutputMetadata(sbJob.getInputs(), outputs);
       BeanSerializer.serializePartial(new File(workingDir, RESULT_FILENAME), outputs);
 
@@ -149,7 +143,7 @@ public class SBProcessor implements ProtocolProcessor {
     }
   }
 
-  private Map<String, Object> collectOutputs(SBJob job, File workingDir, HashAlgorithm hashAlgorithm, FilePathMapper executionFilePathMapper,
+  private Map<String, Object> collectOutputs(SBJob job, File workingDir, HashAlgorithm hashAlgorithm, FilePathMapper logFilePathMapper,
       Map<String, Object> config) throws SBGlobException, SBExpressionException, IOException, BindingException, SBPortProcessorException {
     File resultFile = new File(workingDir, RESULT_FILENAME);
 
@@ -168,8 +162,15 @@ public class SBProcessor implements ProtocolProcessor {
         result.put(SBSchemaHelper.normalizeId(outputPort.getId()), singleResult);
       }
     }
-    if (executionFilePathMapper != null) {
-      return new SBPortProcessor(job).processOutputs(result, new SBFilePathMapProcessorCallback(executionFilePathMapper, config));
+    if (logFilePathMapper != null) {
+      try {
+        Map<String, Object> mappedResult = new SBPortProcessor(job).processOutputs(result, new SBFilePathMapProcessorCallback(logFilePathMapper, config));
+        BeanSerializer.serializePartial(resultFile, mappedResult);
+      } catch (SBPortProcessorException e) {
+        throw new SBGlobException("Failed to map outputs", e);
+      }
+    } else {
+      BeanSerializer.serializePartial(resultFile, result);
     }
     return result;
   }
