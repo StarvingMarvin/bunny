@@ -41,10 +41,7 @@ public class CWLFilePathMapProcessorCallback implements CWLPortProcessorCallback
       throw new CWLPortProcessorException(e);
     }
   }
-  
-  
-  
-  @SuppressWarnings("unchecked")
+
   private Object mapSingleFile(Object value) throws FileMappingException {
     if (CWLSchemaHelper.isFileFromValue(value) || CWLSchemaHelper.isDirectoryFromValue(value)) {
       Object clonedValue = CloneHelper.deepCopy(value);
