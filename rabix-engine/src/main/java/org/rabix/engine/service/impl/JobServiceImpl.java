@@ -310,6 +310,7 @@ public class JobServiceImpl implements JobService {
     try {
       // TODO: add jobId and all terminal outputs?
       Map<String, Object> terminalOutputs = terminalOutputsHelper.getTerminalOutputs(job.getId().toString(), job.getRootId());
+
       engineStatusCallback.onJobRootCompleted(job.getRootId(), terminalOutputs);
     } catch (EngineStatusCallbackException e) {
       logger.error("Engine status callback failed", e);
