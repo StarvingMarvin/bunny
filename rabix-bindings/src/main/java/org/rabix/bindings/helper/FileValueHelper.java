@@ -338,7 +338,7 @@ public class FileValueHelper {
         boolean isLinkEnabled = ((SingleInputFileRequirement) fileRequirement).isLinkEnabled();
         if (!Files.isDirectory(file)) {
           if (isLinkEnabled) {
-            Files.createLink(destinationFile, file); // use hard link
+            Files.createSymbolicLink(destinationFile, file); // use hard link
           } else {
             Files.copy(file, destinationFile); // use copy
           }
