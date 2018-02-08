@@ -385,7 +385,7 @@ public class JobServiceImpl implements JobService {
       // if top level or root then only makes sens to search for terminal outputs
       // job.isRoot is not probably necessary because this method will
       // never be called for rootJob
-      Map<String, Object> terminalOutputs = terminalOutputsHelper.getTerminalOutputs(job.getId().toString(), job.getRootId());
+      Map<String, Object> terminalOutputs = terminalOutputsHelper.getTerminalOutputs(job.getName(), job.getRootId());
       logger.info("handleJobCompleted() Terminal outputs for jobId={}, rootId={} are {}" , job.getId(), job.getRootId(), terminalOutputs);
       engineStatusCallback.onJobCompleted(job.getId(), job.getRootId(), terminalOutputs);
     } catch (EngineStatusCallbackException e) {
