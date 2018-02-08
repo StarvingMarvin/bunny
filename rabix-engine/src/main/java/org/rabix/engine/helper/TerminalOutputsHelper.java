@@ -48,7 +48,7 @@ public class TerminalOutputsHelper {
         terminalOutputs.put(linkRecord.getDestinationJobPort(), variableRecord.getValue());
       }
     }
-
+    logger.info("Terminal for jobId={}, rootId={} are {}", jobId, rootId, terminalOutputs);
     return terminalOutputs;
   }
 }
