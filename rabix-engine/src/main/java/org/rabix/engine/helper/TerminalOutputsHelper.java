@@ -36,7 +36,7 @@ public class TerminalOutputsHelper {
                                                                                DAGLinkPort.LinkPortType.OUTPUT,
                                                                                rootId);
     // get all links which are leading to root job
-    linkRecords.removeIf(linkRecord -> !linkRecord.getDestinationJobId().equals(InternalSchemaHelper.ROOT_NAME));
+    //linkRecords.removeIf(linkRecord -> !linkRecord.getDestinationJobId().equals(InternalSchemaHelper.ROOT_NAME));
     Map<String, Object> terminalOutputs = new HashMap<>();
 
     // for links leading to root job find outputs which will be terminal outputs for current job (if the job have any)
