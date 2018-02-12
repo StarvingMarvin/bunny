@@ -308,10 +308,7 @@ public class JobServiceImpl implements JobService {
     job = jobHelper.fillOutputs(job);
     jobRepository.update(job);
     try {
-      // TODO: add jobId and all terminal outputs?
-      Map<String, Object> terminalOutputs = terminalOutputsHelper.getTerminalOutputs(job.getId().toString(), job.getRootId());
-
-      engineStatusCallback.onJobRootCompleted(job.getRootId(), terminalOutputs);
+      engineStatusCallback.onJobRootCompleted(job.getRootId(), job.getOutputs());
     } catch (EngineStatusCallbackException e) {
       logger.error("Engine status callback failed", e);
     } finally {
