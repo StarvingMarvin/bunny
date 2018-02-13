@@ -171,23 +171,20 @@ public class JobStatusEventHandler implements EventHandler<JobStatusEvent> {
       jobRecord.setState(JobRecord.JobState.COMPLETED);
       jobRecordService.update(jobRecord);
 
-      if (jobRecord.isRoot()) {
-        eventProcessor.send(new ContextStatusEvent(event.getContextId(), ContextStatus.COMPLETED));
-        try {
-          Job rootJob = jobHelper.createJob(jobRecord, JobStatus.COMPLETED, event.getResult());
-          jobService.handleJobRootCompleted(rootJob);
-        } catch (BindingException e) {
-          logger.error("Binding exception occurred", e);
+      try {
+        Job job = jobHelper.createJob(jobRecord, JobStatus.COMPLETED, event.getResult());
+
+        // check if job is actually single tool
+        if (!jobRecord.isScattered() && !(jobRecord.isRoot() && jobRecord.isContainer())) {
+          jobService.handleJobCompleted(job);
         }
-      } else {
-        if (!jobRecord.isScattered()) {
-          checkJobRootPartiallyCompleted(jobRecord, mode);
-          try {
-            jobService.handleJobCompleted(jobHelper.createJob(jobRecord, JobStatus.COMPLETED, event.getResult()));
-          } catch (BindingException e) {
-            logger.error("Handling job completed failed", e);
-          }
+        // if it is single tool it will also be and root job too
+        if (jobRecord.isRoot()) {
+          eventProcessor.send(new ContextStatusEvent(jobRecord.getRootId(), ContextRecord.ContextStatus.COMPLETED));
+          jobService.handleJobRootCompleted(job);
         }
+      } catch (BindingException e) {
+        logger.warn("Exception occurred while trying to handle job={} completion.", jobRecord.getExternalId() ,e);
       }
       break;
     case ABORTED:
@@ -241,16 +238,6 @@ public class JobStatusEventHandler implements EventHandler<JobStatusEvent> {
     if (jobStatsRecord != null && !(jobRecord.isRoot() && jobRecord.isContainer())) {
       jobStatsRecord.increaseCompleted();
       jobStatsRecordService.update(jobStatsRecord);
-    }
-  }
-
-  private void checkJobRootPartiallyCompleted(JobRecord jobRecord, EventHandlingMode mode) {
-    if (mode == EventHandlingMode.REPLAY) {
-      return;
-    }
-    Map<String, Object> terminalOutputs = terminalOutputsHelper.getTerminalOutputs(jobRecord.getId(), jobRecord.getRootId());
-    if (!terminalOutputs.isEmpty()) {
-      jobService.handleJobRootPartiallyCompleted(jobRecord.getRootId(), terminalOutputs, jobRecord.getExternalId());
     }
   }
 

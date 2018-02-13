@@ -7,22 +7,22 @@ import org.rabix.bindings.Bindings;
 import org.rabix.bindings.BindingsFactory;
 import org.rabix.bindings.model.Job;
 import org.rabix.bindings.model.Job.JobStatus;
-import org.rabix.bindings.model.dag.DAGLinkPort;
 import org.rabix.bindings.model.dag.DAGNode;
 import org.rabix.common.helper.InternalSchemaHelper;
 import org.rabix.engine.JobHelper;
 import org.rabix.engine.event.Event;
+import org.rabix.engine.event.impl.ContextStatusEvent;
 import org.rabix.engine.event.impl.InitEvent;
 import org.rabix.engine.event.impl.JobStatusEvent;
 import org.rabix.engine.helper.TerminalOutputsHelper;
 import org.rabix.engine.metrics.MetricsHelper;
 import org.rabix.engine.processor.EventProcessor;
+import org.rabix.engine.processor.handler.EventHandlerException;
 import org.rabix.engine.service.*;
 import org.rabix.engine.status.EngineStatusCallback;
 import org.rabix.engine.status.EngineStatusCallbackException;
+import org.rabix.engine.store.model.ContextRecord;
 import org.rabix.engine.store.model.JobRecord;
-import org.rabix.engine.store.model.LinkRecord;
-import org.rabix.engine.store.model.VariableRecord;
 import org.rabix.engine.store.repository.JobRepository;
 import org.rabix.engine.store.repository.JobRepository.JobEntity;
 import org.rabix.engine.store.repository.TransactionHelper;
@@ -378,13 +378,11 @@ public class JobServiceImpl implements JobService {
   @Override
   public void handleJobCompleted(Job job){
     logger.info("Job id: {}, name:{}, rootId: {} is completed.", job.getId(), job.getName(), job.getRootId());
-    try{
-      // if top level or root then only makes sens to search for terminal outputs
-      // job.isRoot is not probably necessary because this method will
-      // never be called for rootJob
-      Map<String, Object> terminalOutputs = terminalOutputsHelper.getTerminalOutputs(job.getName(), job.getRootId());
-      logger.info("handleJobCompleted() Terminal outputs for jobId={}, rootId={} are {}" , job.getId(), job.getRootId(), terminalOutputs);
+    try {
+      Map<String, Object> terminalOutputs = job.isRoot() ? job.getOutputs() : terminalOutputsHelper.getTerminalOutputs(job.getName(), job.getRootId());
       engineStatusCallback.onJobCompleted(job.getId(), job.getRootId(), terminalOutputs);
+
+      logger.info("handleJobCompleted() Terminal outputs for jobId={}, rootId={} are {}", job.getId(), job.getRootId(), terminalOutputs);
     } catch (EngineStatusCallbackException e) {
       logger.error("Engine status callback failed",e);
     }
