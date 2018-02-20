@@ -54,6 +54,7 @@ public class JobStatusEventHandler implements EventHandler<JobStatusEvent> {
   private final VariableRecordService variableRecordService;
   private final ContextRecordService contextRecordService;
   private final JobStatsRecordService jobStatsRecordService;
+  private final IntermediaryFilesService intermediaryFilesService;
 
   private final JobRepository jobRepository;
   private final JobService jobService;
@@ -67,7 +68,7 @@ public class JobStatusEventHandler implements EventHandler<JobStatusEvent> {
       final VariableRecordService variableRecordService, final ContextRecordService contextRecordService,
       final EventProcessor eventProcessor, final ScatterHandler scatterHelper, final JobRepository jobRepository,
       final JobService jobService, final JobStatsRecordService jobStatsRecordService,
-      final Configuration configuration, final JobHelper jobHelper) {
+      final Configuration configuration, final JobHelper jobHelper, final IntermediaryFilesService intermediaryFilesService) {
     this.dagNodeService = dagNodeService;
     this.scatterHelper = scatterHelper;
     this.eventProcessor = eventProcessor;
@@ -79,15 +80,13 @@ public class JobStatusEventHandler implements EventHandler<JobStatusEvent> {
     this.appService = appService;
     this.jobService = jobService;
     this.jobHelper = jobHelper;
-
     this.jobRepository = jobRepository;
     this.setResources = configuration.getBoolean("engine.set_resources", false);
+    this.intermediaryFilesService = intermediaryFilesService;
   }
 
   @Override
   public void handle(JobStatusEvent event, EventHandlingMode mode) throws EventHandlerException {
-    logger.info(event.toString());
-
     JobRecord jobRecord = jobRecordService.find(event.getJobId(), event.getContextId());
     if (jobRecord == null) {
       logger.info("Possible stale message. Job {} for root {} doesn't exist.", event.getJobId(), event.getContextId());
@@ -95,7 +94,7 @@ public class JobStatusEventHandler implements EventHandler<JobStatusEvent> {
     }
 
     JobStatsRecord jobStatsRecord = null;
-    if (mode != EventHandlingMode.REPLAY && (jobRecord.getParentId() != null && jobRecord.getParentId().equals(jobRecord.getRootId())) || (jobRecord.isRoot())) {
+    if (mode != EventHandlingMode.REPLAY && jobRecord.isTopLevel()) {
       jobStatsRecord = jobStatsRecordService.findOrCreate(jobRecord.getRootId());
     }
 
@@ -150,10 +149,6 @@ public class JobStatusEventHandler implements EventHandler<JobStatusEvent> {
       }
       break;
     case COMPLETED:
-      if (!jobRecord.isRoot()) {
-        jobService.delete(jobRecord.getRootId(), jobRecord.getExternalId());
-      }
-
       updateJobStats(jobRecord, jobStatsRecord);
 
       if ((!jobRecord.isScatterWrapper() || jobRecord.isRoot()) && !jobRecord.isContainer()) {
@@ -165,6 +160,11 @@ public class JobStatusEventHandler implements EventHandler<JobStatusEvent> {
       }
       jobRecord.setState(JobRecord.JobState.COMPLETED);
       jobRecordService.update(jobRecord);
+
+      if (!jobRecord.isContainer() && !jobRecord.isScatterWrapper()) {
+        Job job = jobRepository.get(event.getEventGroupId());
+        intermediaryFilesService.decrementInputFilesReferences(event.getContextId(), job.getInputs());
+      }
 
       if (jobRecord.isRoot()) {
         eventProcessor.send(new ContextStatusEvent(event.getContextId(), ContextStatus.COMPLETED));
@@ -178,12 +178,17 @@ public class JobStatusEventHandler implements EventHandler<JobStatusEvent> {
           e.printStackTrace();
         }
       } else {
+        try {
+          Job job = jobHelper.createJob(jobRecord, JobStatus.COMPLETED, event.getResult());
+          jobRepository.update(job);
+
+          jobService.handleJobCompleted(job);
+        } catch (BindingException e) {
+          logger.warn("Could not create completed job for {}", event.getJobId());
+        }
+
         if (!jobRecord.isScattered()) {
           checkJobRootPartiallyCompleted(jobRecord, mode);
-          try {
-            jobService.handleJobCompleted(jobHelper.createJob(jobRecord, JobStatus.COMPLETED, event.getResult()));
-          } catch (BindingException e) {
-          }
         }
       }
       break;

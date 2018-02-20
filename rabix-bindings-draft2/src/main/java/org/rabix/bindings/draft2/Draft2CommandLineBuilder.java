@@ -1,6 +1,7 @@
 package org.rabix.bindings.draft2;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -44,7 +45,7 @@ public class Draft2CommandLineBuilder implements ProtocolCommandLineBuilder {
     
     Draft2CommandLineTool commandLineTool = (Draft2CommandLineTool) draft2Job.getApp();
     List<CommandLine.Part> commandLineParts = Lists.transform(buildCommandLineParts(draft2Job, workingDir, filePathMapper), (obj ->
-        new CommandLine.Part(obj.toString())));
+        new CommandLine.Part(obj.toString(), false)));
 
     String stdin = null;
     try {
@@ -60,9 +61,17 @@ public class Draft2CommandLineBuilder implements ProtocolCommandLineBuilder {
       throw new BindingException("Failed to extract standard outputs.", e);
     }
 
-    CommandLine commandLine = new CommandLine(commandLineParts, stdin, stdout, null, commandLineParts.stream().anyMatch(p->StringUtils.endsWithAny(p.getValue(),"&&","|")));
+    CommandLine commandLine = new CommandLine(commandLineParts, toPath(stdin, workingDir.toPath()), toPath(stdout, workingDir.toPath()), null, commandLineParts.stream().anyMatch(p->StringUtils.endsWithAny(p.getValue(),"&&","|")));
     logger.info("Command line built. CommandLine = {}", commandLine);
     return commandLine;
+  }
+
+  private String toPath(String s, Path workDir) {
+    return StringUtils.isEmpty(s) ? s :  sanitize(workDir.resolve(s).toString());
+  }
+  
+  private String sanitize(String s) {
+      return s.contains(" ") ? "'" + s + "'" : s;
   }
   
   @Override

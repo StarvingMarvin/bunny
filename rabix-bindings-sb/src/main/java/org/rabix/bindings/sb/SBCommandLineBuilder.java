@@ -62,9 +62,17 @@ public class SBCommandLineBuilder implements ProtocolCommandLineBuilder {
       throw new BindingException("Failed to extract standard outputs.", e);
     }
 
-    CommandLine commandLine = new CommandLine(commandLineParts, stdin, stdout, null, true);
+    CommandLine commandLine = new CommandLine(commandLineParts, toPath(stdin, workingDir.toPath()), toPath(stdout, workingDir.toPath()), null, true);
     logger.info("Command line built. CommandLine = {}", commandLine);
     return commandLine;
+  }
+  
+  private String toPath(String s, Path workDir) {
+    return StringUtils.isEmpty(s) ? s :  sanitize(workDir.resolve(s).toString());
+  }
+  
+  private String sanitize(String s) {
+      return s.contains(" ") ? "'" + s + "'" : s;
   }
   
   @Override

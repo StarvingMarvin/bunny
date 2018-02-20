@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import org.rabix.bindings.BindingException;
 import org.rabix.bindings.ProtocolProcessor;
@@ -83,7 +82,7 @@ public class CWLProcessor implements ProtocolProcessor {
     CWLRuntime runtime = cwlJob.getRuntime();
     String path = workingDir.toAbsolutePath().toString();
     try {
-      path = filesPathMapper == null ? path : filesPathMapper.map(path, Collections.EMPTY_MAP);
+      path = filesPathMapper == null ? path : filesPathMapper.map(path, Collections.emptyMap());
     } catch (FileMappingException e1) {
       logger.error(e1.getMessage());
     }
@@ -288,7 +287,7 @@ public class CWLProcessor implements ProtocolProcessor {
       } else {
         return collectOutput(job, workingDir, hashAlgorithm, itemSchema, binding, outputPort);
       }
-    } else if (CWLSchemaHelper.isRecordFromSchema(schema)) {
+    } else if (CWLSchemaHelper.isRecordFromSchema(schema) && CWLBindingHelper.getOutputEval(binding) == null) {
       Map<String, Object> record = new HashMap<>();
       Object fields = CWLSchemaHelper.getFields(schema);
 
@@ -375,7 +374,7 @@ public class CWLProcessor implements ProtocolProcessor {
       return null;
     }
 
-    Set<Path> files = globService.glob(job, workingDir, glob);
+    List<Path> files = globService.glob(job, workingDir, glob);
     if (files == null) {
       logger.info("Glob service didn't find any files.");
       return null;
@@ -405,17 +404,16 @@ public class CWLProcessor implements ProtocolProcessor {
     }
     Object metadata = CWLBindingHelper.getMetadata(outputBinding);
     metadata = metadataService.evaluateMetadataExpressions(job, fileData, metadata);
-    logger.info("Metadata expressions evaluated. Metadata is {}.", metadata);
     if (metadata != null) {
+      logger.info("Metadata expressions evaluated. Metadata is {}.", metadata);
       CWLFileValueHelper.setMetadata(metadata, fileData);
     }
     metadata = metadataService.processMetadata(job, fileData, outputPort, outputBinding);
     if (metadata != null) {
       logger.info("Metadata for {} resolved. Metadata is {}", outputPort.getId(), metadata);
       CWLFileValueHelper.setMetadata(metadata, fileData);
-    } else {
-      logger.info("Metadata for {} output is empty.", outputPort.getId());
     }
+    
     boolean loadContents = CWLBindingHelper.loadContents(outputBinding);
     if (loadContents) {
       CWLFileValueHelper.setContents(fileData);
@@ -451,6 +449,8 @@ public class CWLProcessor implements ProtocolProcessor {
     List<Object> secondaryFilesList = new ArrayList<>();
     if (secondaryFilesObj instanceof List<?>) {
       secondaryFilesList.addAll((Collection<? extends Object>) secondaryFilesObj);
+    } else if (secondaryFilesObj instanceof String) {
+      secondaryFilesList.add(secondaryFilesObj);
     }
 
     List<Map<String, Object>> secondaryFileMaps = new ArrayList<>();

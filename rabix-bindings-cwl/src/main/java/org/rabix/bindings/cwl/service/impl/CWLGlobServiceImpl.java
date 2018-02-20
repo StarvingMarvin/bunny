@@ -2,6 +2,7 @@ package org.rabix.bindings.cwl.service.impl;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,12 +29,12 @@ public class CWLGlobServiceImpl implements CWLGlobService {
   /**
    * Find all files that match GLOB inside the working directory
    */
-  public Set<File> glob(CWLJob job, File workingDir, Object glob) throws CWLGlobException {
-    return this.glob(job, workingDir.toPath(), glob).stream().map(p->p.toFile()).collect(Collectors.toSet());
+  public List<File> glob(CWLJob job, File workingDir, Object glob) throws CWLGlobException {
+    return this.glob(job, workingDir.toPath(), glob).stream().map(p->p.toFile()).collect(Collectors.toList());
   }
   
   @SuppressWarnings("unchecked")
-  public Set<Path> glob(CWLJob job, Path workingDir, Object glob) throws CWLGlobException {
+  public List<Path> glob(CWLJob job, Path workingDir, Object glob) throws CWLGlobException {
     Preconditions.checkNotNull(job);
     Preconditions.checkNotNull(workingDir);
 
@@ -43,7 +44,7 @@ public class CWLGlobServiceImpl implements CWLGlobService {
       throw new CWLGlobException("Failed to evaluate glob " + glob, e);
     }
     if (glob == null) {
-      return Collections.<Path> emptySet();
+      return Collections.<Path> emptyList();
     }
     List<String> globs = new ArrayList<>();
     if (glob instanceof List<?>) {
@@ -51,17 +52,16 @@ public class CWLGlobServiceImpl implements CWLGlobService {
     } else {
       globs.add((String) glob);
     }
-
-    final Set<Path> files = new TreeSet<>();
+    final List<Path> output = new ArrayList<>();
     for (String singleGlob : globs) {
+      Set<Path> files = new TreeSet<>();
       if (singleGlob.equals(".")) {
-        files.add(workingDir);
+        output.add(workingDir);
         continue;
       }
-      final PathMatcher matcher = workingDir.getFileSystem().getPathMatcher("glob:" + singleGlob);
-      final Path startDir = workingDir.resolve("./").normalize();
+      final PathMatcher matcher = FileSystems.getDefault().getPathMatcher("glob:" + singleGlob);
       try {
-        Files.walkFileTree(startDir, new SimpleFileVisitor<Path>() {
+        Files.walkFileTree(workingDir, new SimpleFileVisitor<Path>() {
           @Override
           public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
             if(!file.toAbsolutePath().startsWith(workingDir))
@@ -76,7 +76,7 @@ public class CWLGlobServiceImpl implements CWLGlobService {
           }
           @Override
           public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
-            if(!dir.toAbsolutePath().startsWith(workingDir) || startDir.equals(dir))
+            if(!dir.toAbsolutePath().startsWith(workingDir) || workingDir.equals(dir))
               return FileVisitResult.CONTINUE;
 
             Path pathRelativeToWorkingDir = dir.subpath(workingDir.getNameCount(), dir.getNameCount());
@@ -94,7 +94,8 @@ public class CWLGlobServiceImpl implements CWLGlobService {
       } catch (IOException e) {
         throw new CWLGlobException("Failed to traverse through working directory", e);
       }
+      output.addAll(files);
     }
-    return files.isEmpty() ? null : files;
+    return output.isEmpty() ? null : output;
   }
 }

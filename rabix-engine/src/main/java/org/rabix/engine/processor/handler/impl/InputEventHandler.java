@@ -39,8 +39,7 @@ public class InputEventHandler implements EventHandler<InputUpdateEvent> {
   @Inject
   private  EventProcessor eventProcessor;
   @Inject
-  private IntermediaryFilesService filesService;
-
+  private IntermediaryFilesService intermediaryFilesService;
   private Logger logger = LoggerFactory.getLogger(getClass());
 
   @Override
@@ -53,9 +52,11 @@ public class InputEventHandler implements EventHandler<InputUpdateEvent> {
       return;
     }
 
-    filesService.handleInputSent(event.getContextId(), event.getValue());
-    VariableRecord variable = variableService.find(event.getJobId(), event.getPortId(), LinkPortType.INPUT, event.getContextId());
+    if (!job.isContainer() && !job.isScatterWrapper()) {
+      intermediaryFilesService.incrementInputFilesReferences(event.getContextId(), event.getValue());
+    }
 
+    VariableRecord variable = variableService.find(event.getJobId(), event.getPortId(), LinkPortType.INPUT, event.getContextId());
     DAGNode node = dagNodeService.get(InternalSchemaHelper.normalizeId(job.getId()), event.getContextId(), job.getDagHash());
 
     if (event.isLookAhead()) {

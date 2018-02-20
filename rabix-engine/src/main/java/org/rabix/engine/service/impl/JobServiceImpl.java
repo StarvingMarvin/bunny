@@ -95,7 +95,7 @@ public class JobServiceImpl implements JobService {
   }
 
   private void doUpdate(Job job, Runnable onUpdatedCallback) {
-    logger.debug("Update job id:{}, name:{}, root:{}", job.getId(), job.getName(), job.getRootId());
+//    logger.debug("Update job id:{}, name:{}, root:{}", job.getId(), job.getName(), job.getRootId());
     try {
       transactionHelper.doInTransaction((TransactionHelper.TransactionCallback<Void>) () -> {
         JobStatusEvent statusEvent = null;
@@ -242,10 +242,6 @@ public class JobServiceImpl implements JobService {
       engineStatusCallback.onJobsReady(jobs, rootId, producedByNode);
     } catch (EngineStatusCallbackException e) {
       logger.error("Engine status callback failed", e);
-    } finally {
-      if (!jobs.isEmpty()) {
-        jobRepository.delete(rootId, jobs.stream().filter(job -> !job.isRoot()).map(Job::getId).collect(Collectors.toSet()));
-      }
     }
   }
 
@@ -260,7 +256,7 @@ public class JobServiceImpl implements JobService {
 
   @Override
   public void handleJobFailed(final Job failedJob){
-    logger.warn("Job {}, rootId: {} failed: {}", failedJob.getName(), failedJob.getRootId(), failedJob.getMessage());
+    logger.debug("Job {}, rootId: {} failed: {}", failedJob.getName(), failedJob.getRootId(), failedJob.getMessage());
     intermediaryFilesService.handleJobFailed(failedJob, jobRepository.get(failedJob.getRootId()));
 
     try {
@@ -307,7 +303,7 @@ public class JobServiceImpl implements JobService {
 
   @Override
   public void handleJobRootFailed(Job job){
-    logger.warn("Root job {} failed.", job.getId());
+    logger.debug("Root job {} failed. {}", job.getId(), job.getMessage());
     synchronized (stoppingRootIds) {
       if (deleteFilesUponExecution) {
         if (isLocalBackend) {
@@ -322,12 +318,17 @@ public class JobServiceImpl implements JobService {
       jobRepository.update(job);
       stoppingRootIds.remove(job.getId());
     }
+    handleJobRootFailed(job.getRootId(), job.getMessage());
+  }
+
+  @Override
+  public void handleJobRootFailed(UUID job, String message){
     try {
-      engineStatusCallback.onJobRootFailed(job.getRootId(), job.getMessage());
+      engineStatusCallback.onJobRootFailed(job, message);
     } catch (EngineStatusCallbackException e) {
       logger.error("Engine status callback failed", e);
     } finally {
-      garbageCollectionService.forceGc(job.getRootId());
+      garbageCollectionService.forceGc(job);
     }
   }
 
@@ -362,7 +363,7 @@ public class JobServiceImpl implements JobService {
   @Override
   public void handleJobCompleted(Job job){
     logger.info("Job id: {}, name:{}, rootId: {} is completed.", job.getId(), job.getName(), job.getRootId());
-    try{
+    try {
       engineStatusCallback.onJobCompleted(job.getId(), job.getRootId());
     } catch (EngineStatusCallbackException e) {
       logger.error("Engine status callback failed",e);

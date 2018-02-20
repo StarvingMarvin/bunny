@@ -247,7 +247,8 @@ public class SBFileValueHelper extends SBBeanHelper {
     return raw;
   }
 
-  public static void buildMissingInfo(Object value, HashAlgorithm alg, Path workDir) throws IOException, URISyntaxException {
+  public static void buildMissingInfo(Object value, HashAlgorithm alg, Path dir) throws IOException, URISyntaxException {
+    Path workDir = dir == null ? Paths.get("/") : dir;
     String path = getPath(value);
     String location = getLocation(value);
     Path actual = null;
@@ -306,12 +307,12 @@ public class SBFileValueHelper extends SBBeanHelper {
   }
 
   private static URI createFullURI(String val, Path parent) throws URISyntaxException {
-    URI uri = URI.create(val);
+    URI uri = URI.create(val.replace(" ", "%20"));
     if (uri.getScheme() == null) {
       uri = new URI("file", val, null);
     }
     if (uri.isOpaque()) {
-      uri = new URI("file", parent.resolve(uri.getSchemeSpecificPart()).toAbsolutePath().toString(), null);
+      uri = new URI("file", parent.resolve(val).toAbsolutePath().toString(), null);
     }
     return uri;
   }
@@ -326,5 +327,13 @@ public class SBFileValueHelper extends SBBeanHelper {
 
   public static void setChecksum(File file, Map<String, Object> fileData, HashAlgorithm hashAlgorithm) {
     setChecksum(file.toPath(), fileData, hashAlgorithm);
+  }
+  
+  public static Map<String, Object> pathToRawFile(Path file, HashAlgorithm hash, Path workDir) throws IOException, URISyntaxException {
+    Map<String, Object> fileValue = new HashMap<>();
+    setFileType(fileValue);
+    setLocation(file.toUri().toString(), fileValue);
+    buildMissingInfo(fileValue, hash, workDir);
+    return fileValue;
   }
 }
