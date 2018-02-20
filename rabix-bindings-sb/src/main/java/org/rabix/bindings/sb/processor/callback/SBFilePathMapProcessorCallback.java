@@ -1,8 +1,12 @@
 package org.rabix.bindings.sb.processor.callback;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
+import org.rabix.bindings.mapper.FileMappingException;
 import org.rabix.bindings.mapper.FilePathMapper;
 import org.rabix.bindings.model.ApplicationPort;
 import org.rabix.bindings.sb.helper.SBFileValueHelper;
@@ -23,37 +27,47 @@ public class SBFilePathMapProcessorCallback implements SBPortProcessorCallback {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
   public SBPortProcessorResult process(Object value, String id, Object schema, Object binding, ApplicationPort parentPort) throws SBPortProcessorException {
     if (value == null) {
       return new SBPortProcessorResult(value, false);
     }
     try {
-      Object clonedValue = CloneHelper.deepCopy(value);
-      
-      if (SBSchemaHelper.isFileFromValue(clonedValue)) {
-        Map<String, Object> valueMap = (Map<String, Object>) clonedValue;
-        String path = SBFileValueHelper.getPath(valueMap);
-
-        if (path != null && filePathMapper != null) {
-          SBFileValueHelper.setPath(filePathMapper.map(path, config), valueMap);
-
-          List<Map<String, Object>> secondaryFiles = SBFileValueHelper.getSecondaryFiles(valueMap);
-
-          if (secondaryFiles != null) {
-            for (Map<String, Object> secondaryFile : secondaryFiles) {
-              String secondaryFilePath = SBFileValueHelper.getPath(secondaryFile);
-              SBFileValueHelper.setPath(filePathMapper.map(secondaryFilePath, config), secondaryFile);
-            }
-          }
-          return new SBPortProcessorResult(valueMap, true);
-        }
+      if (SBSchemaHelper.isFileFromValue(value)) {
+        return new SBPortProcessorResult(mapSingleFile(value), true);
       }
-      return new SBPortProcessorResult(clonedValue, false);
+      return new SBPortProcessorResult(value, false);
     } catch (Exception e) {
       throw new SBPortProcessorException(e);
     }
-    
   }
 
+
+  private Object mapSingleFile(Object value) throws FileMappingException {
+    if (SBSchemaHelper.isFileFromValue(value)) {
+      Object clonedValue = CloneHelper.deepCopy(value);
+      String path = SBFileValueHelper.getPath(clonedValue);
+      if (StringUtils.isEmpty(path)) { // file literals
+        return value;
+      }
+      mapAllValues(clonedValue);
+
+      List<Map<String, Object>> secondaryFiles = SBFileValueHelper.getSecondaryFiles(clonedValue);
+      if (secondaryFiles != null) {
+        for (Map<String, Object> secondaryFileValue : secondaryFiles) {
+          mapAllValues(secondaryFileValue);
+        }
+      }
+      return clonedValue;
+    }
+    return value;
+  }
+
+  private void mapAllValues(Object secondaryFileValue) throws FileMappingException {
+    String mappedValue = filePathMapper.map(SBFileValueHelper.getPath(secondaryFileValue), config);
+    SBFileValueHelper.setPath(mappedValue, secondaryFileValue);
+    Path pathObj = Paths.get(mappedValue);
+    SBFileValueHelper.setLocation(pathObj.toUri().toString(), secondaryFileValue);
+    SBFileValueHelper.setDirname(pathObj.getParent().toString(), secondaryFileValue);
+  }
 }
+

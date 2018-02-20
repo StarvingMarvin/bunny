@@ -144,6 +144,18 @@ public class CWLProcessor implements ProtocolProcessor {
         }
       } else {
         outputs = collectOutputs(cwlJob, workingDir, hashAlgorithm, logFilePathMapper, job.getConfig());
+      }   
+      
+      Path resultFile = workingDir.resolve(RESULT_FILENAME);
+      if (logFilePathMapper != null) {
+        try {
+          Map<String, Object> mappedResult = new CWLPortProcessor(cwlJob).processOutputs(outputs, new CWLFilePathMapProcessorCallback(logFilePathMapper, job.getConfig()));
+          BeanSerializer.serializePartial(resultFile, mappedResult);
+        } catch (CWLPortProcessorException e) {
+          throw new CWLGlobException("Failed to map outputs", e);
+        }
+      } else {
+        BeanSerializer.serializePartial(resultFile, outputs);
       }
       return Job.cloneWithOutputs(job, (Map<String, Object>) CWLValueTranslator.translateToCommon(outputs));
     } catch (CWLGlobException | CWLExpressionException | IOException | URISyntaxException e) {
@@ -173,17 +185,6 @@ public class CWLProcessor implements ProtocolProcessor {
     for (CWLOutputPort outputPort : commandLineTool.getOutputs()) {
       Object singleResult = collectOutput(job, workingDir, hashAlgorithm, outputPort.getSchema(), outputPort.getOutputBinding(), outputPort);
       result.put(CWLSchemaHelper.normalizeId(outputPort.getId()), singleResult);
-    }
-
-    if (logFilePathMapper != null) {
-      try {
-        Map<String, Object> mappedResult = new CWLPortProcessor(job).processOutputs(result, new CWLFilePathMapProcessorCallback(logFilePathMapper, config));
-        BeanSerializer.serializePartial(resultFile, mappedResult);
-      } catch (CWLPortProcessorException e) {
-        throw new CWLGlobException("Failed to map outputs", e);
-      }
-    } else {
-      BeanSerializer.serializePartial(resultFile, result);
     }
     return result;
   }
