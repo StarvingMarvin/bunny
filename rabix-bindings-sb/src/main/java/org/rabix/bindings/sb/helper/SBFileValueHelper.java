@@ -287,13 +287,13 @@ public class SBFileValueHelper extends SBBeanHelper {
 
     setPath(path, value);
     setLocation(location, value);
-
-    if (getSize(value) == null && Files.exists(actual)) {
-      setSize(Files.size(actual), value);
-      if (alg != null)
-        setChecksum(actual, value, alg);
+    if (Files.exists(actual)) {
+      if (getSize(value) == null && Files.exists(actual)) {
+        setSize(Files.size(actual), value);
+        if (alg != null)
+          setChecksum(actual, value, alg);
+      }
     }
-
     List<Map<String, Object>> secondaryFiles = getSecondaryFiles(value);
     if (secondaryFiles != null) {
       for (Map<String, Object> secondaryFileValue : secondaryFiles) {
