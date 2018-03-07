@@ -1,13 +1,13 @@
-package org.rabix.backend.tes.service.impl;
+package org.rabix.backend.service;
 
 import java.net.URI;
 
 import org.rabix.backend.model.RemoteTask;
 import org.rabix.bindings.model.Job;
 
-class WorkPair {
-  Job job;
-  RemoteTask task;
+public class WorkPair {
+  public Job job;
+  public RemoteTask task;
 
   public WorkPair(Job job, RemoteTask tesTask) {
     super();

@@ -177,8 +177,8 @@ public class TESTask implements RemoteTask {
   }
 
   @Override
+  @JsonIgnore
   public String getError() {
-    // TODO Auto-generated method stub
-    return null;
+    return logs == null ? null : logs.toString();
   }
 }

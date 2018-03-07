@@ -80,11 +80,6 @@
 	<dependencies>
 		<dependency>
 			<groupId>org.rabix</groupId>
-			<artifactId>rabix-executor</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.rabix</groupId>
 			<artifactId>rabix-engine</artifactId>
 			<version>${project.version}</version>
 		</dependency>

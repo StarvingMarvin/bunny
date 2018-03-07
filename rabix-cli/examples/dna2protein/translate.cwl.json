@@ -46,7 +46,7 @@
   "hints": [
     {
       "class": "DockerRequirement",
-      "dockerPull": "python:2-alpine"
+      "dockerPull": "python:2-slim"
     }
   ],
   "baseCommand": [

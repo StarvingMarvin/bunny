@@ -1,4 +1,4 @@
-package org.rabix.backend.tes.service.impl;
+package org.rabix.backend.service;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -14,9 +14,7 @@ import java.util.concurrent.Callable;
 
 import org.apache.commons.lang3.StringUtils;
 import org.rabix.backend.model.RemoteTask;
-import org.rabix.backend.service.RemoteServiceException;
-import org.rabix.backend.service.RemoteStorageService;
-import org.rabix.backend.service.TESStorageException;
+import org.rabix.backend.tes.service.impl.TESStorageException;
 import org.rabix.bindings.BindingException;
 import org.rabix.bindings.Bindings;
 import org.rabix.bindings.BindingsFactory;
@@ -36,10 +34,10 @@ import org.slf4j.LoggerFactory;
 
 public abstract class TaskRunCallable implements Callable<WorkPair> {
 
-  Job job;
-  Path workDir;
-  Path localDir;
-  RemoteStorageService storage;
+  protected Job job;
+  protected Path workDir;
+  protected Path localDir;
+  protected RemoteStorageService storage;
 
   private final static Logger logger = LoggerFactory.getLogger(TaskRunCallable.class);
   public final static String DEFAULT_COMMAND_LINE_TOOL_ERR_LOG = "job.err.log";
@@ -52,9 +50,9 @@ public abstract class TaskRunCallable implements Callable<WorkPair> {
     localDir = storage.localDir(job);
   }
 
-  abstract void start(Iterable<FileValue> files, DockerContainerRequirement docker, CommandLine commandLine, List<Requirement> combinedRequirements);
+  public abstract void start(Iterable<FileValue> files, DockerContainerRequirement docker, CommandLine commandLine, List<Requirement> combinedRequirements);
 
-  abstract RemoteTask check() throws RemoteServiceException;
+  public abstract RemoteTask check() throws RemoteServiceException;
 
   @Override
   public WorkPair call() throws Exception {

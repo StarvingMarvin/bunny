@@ -1,4 +1,4 @@
-package org.rabix.backend.tes.service.impl;
+package org.rabix.backend.service;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -26,12 +26,12 @@ import org.rabix.backend.api.callback.WorkerStatusCallbackException;
 import org.rabix.backend.api.engine.EngineStub;
 import org.rabix.backend.api.engine.EngineStubLocal;
 import org.rabix.backend.model.RemoteTask;
-import org.rabix.backend.service.RemoteServiceException;
-import org.rabix.backend.service.RemoteStorageService;
+import org.rabix.backend.tes.config.TESConfig;
 import org.rabix.bindings.Bindings;
 import org.rabix.bindings.BindingsFactory;
 import org.rabix.bindings.model.Job;
 import org.rabix.bindings.model.Job.JobStatus;
+import org.rabix.common.helper.ChecksumHelper;
 import org.rabix.common.helper.ChecksumHelper.HashAlgorithm;
 import org.rabix.common.logging.VerboseLogger;
 import org.rabix.transport.backend.Backend;
@@ -43,9 +43,9 @@ import org.slf4j.LoggerFactory;
 import com.google.inject.BindingAnnotation;
 import com.google.inject.Inject;
 
-public abstract class LocalWorkerServiceImpl implements WorkerService {
+public class RemoteWorkerServiceImpl implements WorkerService {
 
-  private final static Logger logger = LoggerFactory.getLogger(LocalWorkerServiceImpl.class);
+  private final static Logger logger = LoggerFactory.getLogger(RemoteWorkerServiceImpl.class);
 
   @BindingAnnotation
   @Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.PARAMETER, java.lang.annotation.ElementType.METHOD})
@@ -67,9 +67,15 @@ public abstract class LocalWorkerServiceImpl implements WorkerService {
   private Configuration configuration;
   @Inject
   private WorkerStatusCallback statusCallback;
+  @Inject
+  private TESConfig tesConfig;
 
   @Inject
   private TaskCallableFactory factory;
+
+  private boolean enableHash;
+
+  private HashAlgorithm hashAlgorithm;
 
 
   private void success(Job job, RemoteTask tesJob) {
@@ -82,7 +88,7 @@ public abstract class LocalWorkerServiceImpl implements WorkerService {
         Path outDir = Paths.get(uri);
         dir = outDir;
       }
-      job = bindings.postprocess(job, dir, HashAlgorithm.SHA1, (String path, Map<String, Object> config) -> path);
+      job = bindings.postprocess(job, dir, enableHash ? hashAlgorithm : null, (String path, Map<String, Object> config) -> path);
     } catch (Exception e) {
       logger.error("Couldn't process job", e);
       job = Job.cloneWithStatus(job, JobStatus.FAILED);
@@ -109,6 +115,10 @@ public abstract class LocalWorkerServiceImpl implements WorkerService {
 
   @Override
   public void start(Backend backend) {
+    scheduledTaskChecker = Executors.newScheduledThreadPool(tesConfig.getPostProcessingThreadPoolSize());
+    taskPoolExecutor = Executors.newFixedThreadPool(tesConfig.getTaskThreadPoolSize());
+    enableHash = configuration.getBoolean("executor.calculate_file_checksum", true);
+    hashAlgorithm = ChecksumHelper.HashAlgorithm.valueOf(configuration.getString("executor.checksum_algorithm", "SHA1"));
     try {
       switch (backend.getType()) {
         case LOCAL:
@@ -138,7 +148,7 @@ public abstract class LocalWorkerServiceImpl implements WorkerService {
               }
               iterator.remove();
             } catch (InterruptedException | ExecutionException e) {
-              logger.error("Failed to retrieve TESTask", e);
+              logger.error("Failed to retrieve Task", e);
               handleException(e);
               iterator.remove();
             }
@@ -198,5 +208,11 @@ public abstract class LocalWorkerServiceImpl implements WorkerService {
   @Override
   public JobStatus findStatus(UUID id, UUID contextId) {
     throw new NotImplementedException("This method is not implemented");
+  }
+
+
+  @Override
+  public String getType() {
+    return "REMOTE";
   }
 }

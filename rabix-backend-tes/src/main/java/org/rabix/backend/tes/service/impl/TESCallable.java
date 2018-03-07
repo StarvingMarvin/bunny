@@ -3,14 +3,16 @@ package org.rabix.backend.tes.service.impl;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.rabix.backend.model.RemoteTask;
 import org.rabix.backend.service.RemoteServiceException;
 import org.rabix.backend.service.RemoteStorageService;
-import org.rabix.backend.service.TESStorageException;
+import org.rabix.backend.service.TaskRunCallable;
 import org.rabix.backend.tes.client.TESHTTPClientException;
 import org.rabix.backend.tes.client.TESHttpClient;
 import org.rabix.backend.tes.model.TESCreateTaskResponse;
@@ -27,6 +29,7 @@ import org.rabix.bindings.model.FileValue;
 import org.rabix.bindings.model.FileValue.FileType;
 import org.rabix.bindings.model.Job;
 import org.rabix.bindings.model.requirement.DockerContainerRequirement;
+import org.rabix.bindings.model.requirement.EnvironmentVariableRequirement;
 import org.rabix.bindings.model.requirement.Requirement;
 import org.rabix.bindings.model.requirement.ResourceRequirement;
 
@@ -41,8 +44,9 @@ public class TESCallable extends TaskRunCallable {
   }
 
   @Override
-  void start(Iterable<FileValue> files, DockerContainerRequirement docker, CommandLine commandLine, List<Requirement> combinedRequirements) {
+  public void start(Iterable<FileValue> files, DockerContainerRequirement docker, CommandLine commandLine, List<Requirement> combinedRequirements) {
     Set<TESInput> inputs = new HashSet<>();
+
 
     files.forEach(fileValue -> {
       try {
@@ -54,8 +58,8 @@ public class TESCallable extends TaskRunCallable {
       }
     });
 
-    List<TESOutput> outputs = Collections
-        .singletonList(new TESOutput(localDir.getFileName().toString(), null, workDir.toUri().toString(), localDir.toString(), TESFileType.DIRECTORY));
+    List<TESOutput> outputs = Collections.singletonList(
+        new TESOutput(localDir.getFileName().toString(), null, workDir.toUri().toString(), localDir.toString(), TESFileType.DIRECTORY));
 
     String commandLineToolStdout = commandLine.getStandardOut();
     if (commandLineToolStdout != null && !commandLineToolStdout.startsWith("/")) {
@@ -68,12 +72,14 @@ public class TESCallable extends TaskRunCallable {
     }
     commandLineToolErrLog = localDir.resolve(commandLineToolErrLog).toString();
 
-    List<TESExecutor> command = Collections.singletonList(new TESExecutor(getImageId(docker), buildCommandLine(commandLine), localDir.toString(),
-        commandLine.getStandardIn(), commandLineToolStdout, commandLineToolErrLog, getVariables(combinedRequirements)));
+    List<TESExecutor> command = Collections.singletonList(new TESExecutor(
+            getImageId(docker), buildCommandLine(commandLine), localDir.toString(),
+            commandLine.getStandardIn(), commandLineToolStdout, commandLineToolErrLog, getEnvVariables(combinedRequirements)
+    ));
 
     TESResources resources = getResources(combinedRequirements);
-
-    TESTask task = new TESTask(job.getName(), null, new ArrayList<>(inputs), outputs, resources, command, null, null, null);
+    Map<String, String> tags = getTags(job);
+    TESTask task = new TESTask(job.getName(), null, new ArrayList<>(inputs), outputs, resources, command, null, tags, null);
 
     try {
       tesJobId = tesHttpClient.runTask(task);
@@ -83,6 +89,24 @@ public class TESCallable extends TaskRunCallable {
     }
   }
 
+  private Map<String, String> getTags(Job job) {
+    Map<String, String> tags = new HashMap<>();
+    tags.put("workflow_id", job.getRootId().toString());
+    tags.put("job_id", job.getId().toString());
+    tags.put("tool_name", job.getName());
+    return tags;
+  }
+
+  private Map<String, String> getEnvVariables(List<Requirement> combinedRequirements) {
+    EnvironmentVariableRequirement envs = getRequirement(combinedRequirements, EnvironmentVariableRequirement.class);
+    Map<String, String> variables = new HashMap<>();
+    if (envs != null) {
+      variables = envs.getVariables();
+    }
+    variables.put("HOME", localDir.toString());
+    variables.put("TMPDIR", localDir.toString());
+    return variables;
+  }
 
   private TESResources getResources(List<Requirement> combinedRequirements) {
     Integer cpus = null;
@@ -99,7 +123,7 @@ public class TESCallable extends TaskRunCallable {
   }
 
   @Override
-  RemoteTask check() throws RemoteServiceException {
+  public RemoteTask check() throws RemoteServiceException {
     try {
       return tesHttpClient.getTask(new TESGetTaskRequest(tesJobId.getId(), TESView.FULL));
     } catch (TESHTTPClientException e) {

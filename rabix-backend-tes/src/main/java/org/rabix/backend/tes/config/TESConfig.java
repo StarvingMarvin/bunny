@@ -26,15 +26,15 @@ public class TESConfig {
   }
   
   public String getHost() {
-    return configuration.getString(HOST);
+    return configuration.getString(HOST, "localhost");
   }
   
   public String getScheme() {
-    return configuration.getString(SCHEME);
+    return configuration.getString(SCHEME, "http");
   }
   
   public int getPort() {
-    return configuration.getInt(PORT);
+    return configuration.getInt(PORT, 8000);
   }
 
   public int getTaskThreadPoolSize() {
@@ -56,7 +56,4 @@ public class TESConfig {
   public int getClientWriteTimeout() {
     return configuration.getInt(WRITE_TIMEOUT, 60);
   }
-
-  public String getStorageBase() { return configuration.getString(STORAGE_BASE); }
-
 }

@@ -1,38 +1,34 @@
-package org.rabix.backend.tes;
+package org.rabix.backend.service;
 
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.FileSystems;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.ArrayList;
 
 import org.apache.commons.configuration.Configuration;
 import org.rabix.backend.api.BackendModule;
 import org.rabix.backend.api.WorkerService;
 import org.rabix.backend.tes.client.TESHttpClient;
 import org.rabix.backend.tes.config.TESConfig;
-import org.rabix.backend.tes.service.TESStorageService;
-import org.rabix.backend.tes.service.impl.LocalTESStorageServiceImpl;
-import org.rabix.backend.tes.service.impl.LocalTESWorkerServiceImpl;
-import org.rabix.backend.tes.service.impl.LocalTESWorkerServiceImpl.TESWorker;
 import org.rabix.common.config.ConfigModule;
 
 import com.google.inject.Scopes;
 import com.upplication.s3fs.AmazonS3Factory;
 
-public class TESModule extends BackendModule {
+public class RemoteModule extends BackendModule {
 
-  public TESModule(ConfigModule configModule) {
+  public RemoteModule(ConfigModule configModule) {
     super(configModule);
   }
 
   @Override
   protected void configure() {
     bind(TESHttpClient.class).in(Scopes.SINGLETON);
-    bind(TESStorageService.class).to(LocalTESStorageServiceImpl.class).in(Scopes.SINGLETON);
-    bind(WorkerService.class).annotatedWith(TESWorker.class).to(LocalTESWorkerServiceImpl.class).in(Scopes.SINGLETON);
+    bind(RemoteStorageService.class).to(RemoteStorageServiceImpl.class).in(Scopes.SINGLETON);
+    bind(WorkerService.class).to(RemoteWorkerServiceImpl.class).in(Scopes.SINGLETON);
     Configuration configuration = this.configModule.provideConfig();
 
     String storageConfig = configuration.getString(TESConfig.STORAGE_BASE);

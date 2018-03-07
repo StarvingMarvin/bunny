@@ -1,4 +1,4 @@
-package org.rabix.backend.tes.service.impl;
+package org.rabix.backend.service;
 
 import java.io.IOException;
 import java.net.URI;
@@ -11,8 +11,7 @@ import java.util.List;
 
 import org.apache.commons.configuration.Configuration;
 import org.rabix.backend.tes.config.TESConfig;
-import org.rabix.backend.tes.service.TESStorageException;
-import org.rabix.backend.tes.service.TESStorageService;
+import org.rabix.backend.tes.service.impl.TESStorageException;
 import org.rabix.bindings.BindingException;
 import org.rabix.bindings.helper.FileValueHelper;
 import org.rabix.bindings.model.DirectoryValue;
@@ -25,15 +24,15 @@ import org.slf4j.LoggerFactory;
 
 import com.google.inject.Inject;
 
-public class LocalTESStorageServiceImpl implements TESStorageService {
+public class RemoteStorageServiceImpl implements RemoteStorageService {
 
-  private final static Logger logger = LoggerFactory.getLogger(LocalTESStorageServiceImpl.class);
+  private final static Logger logger = LoggerFactory.getLogger(RemoteStorageServiceImpl.class);
 
   private Path localFileStorage;
   private Path storageBase;
 
   @Inject
-  public LocalTESStorageServiceImpl(Configuration configuration) {
+  public RemoteStorageServiceImpl(Configuration configuration) {
     localFileStorage = Paths.get(configuration.getString("backend.execution.directory"));
     String storageConfig = configuration.getString(TESConfig.STORAGE_BASE, localFileStorage.toString());
     URI uri = URI.create(storageConfig);
@@ -120,5 +119,10 @@ public class LocalTESStorageServiceImpl implements TESStorageService {
   @Override
   public Path localDir(Job job) {
     return localFileStorage.resolve(job.getRootId().toString()).resolve(job.getName().replaceAll("\\.", "/"));
+  }
+  
+  @Override
+  public Path storageBase() {
+    return storageBase;
   }
 }

@@ -1,7 +1,8 @@
-package org.rabix.backend.tes.service.impl;
+package org.rabix.backend.google.service;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Path;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,6 +14,7 @@ import java.util.Map;
 import org.rabix.backend.model.RemoteTask;
 import org.rabix.backend.service.RemoteServiceException;
 import org.rabix.backend.service.RemoteStorageService;
+import org.rabix.backend.service.TaskRunCallable;
 import org.rabix.bindings.BindingException;
 import org.rabix.bindings.Bindings;
 import org.rabix.bindings.CommandLine;
@@ -26,7 +28,6 @@ import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
-import com.google.api.client.util.GenericData;
 import com.google.api.services.genomics.Genomics;
 import com.google.api.services.genomics.model.Disk;
 import com.google.api.services.genomics.model.DockerExecutor;
@@ -41,20 +42,23 @@ import com.google.api.services.genomics.model.RunPipelineRequest;
 
 public class GoogleCallable extends TaskRunCallable {
 
-
-  private static final String GS_OUTPUT = "gs://bunny-pipes/workdir";
-  private static final String PROJECTID = "api-project-237800208948";
   private static final String DISK = "disk";
   private static final String OUTPUT = "output";
-  private static final String WORKDIR = "workdir";
   private String operation;
+  private Path outputLocation;
+  private Path logLocation;
+  private String projectId;
 
-  public GoogleCallable(Job job, RemoteStorageService storage) {
+  public GoogleCallable(Job job, RemoteStorageService storage, String projectId) {
     super(job, storage);
+    this.outputLocation = storage.storageBase().resolve("outputdir");
+    this.logLocation = storage.storageBase().resolve("log");
+    this.projectId = projectId;
   }
 
   @Override
-  void start(Iterable<FileValue> files, DockerContainerRequirement docker, CommandLine commandLine, List<Requirement> combinedRequirements) {
+  public void start(Iterable<FileValue> files, DockerContainerRequirement docker, CommandLine commandLine, List<Requirement> combinedRequirements) {
+    
     Pipeline createRequest = new Pipeline();
     createRequest.setName("test");
     List<PipelineParameter> inputs = new ArrayList<>();
@@ -70,7 +74,7 @@ public class GoogleCallable extends TaskRunCallable {
       urls.put(pp.getName(), f.getLocation());
     });
     createRequest.setInputParameters(inputs);
-    createRequest.setProjectId(PROJECTID);
+    createRequest.setProjectId(projectId);
 
     List<PipelineParameter> outputs = new ArrayList<>();
     PipelineParameter output = new PipelineParameter();
@@ -95,10 +99,8 @@ public class GoogleCallable extends TaskRunCallable {
 
     DockerExecutor dockerExecutor = new DockerExecutor();
     dockerExecutor.setImageName(docker == null ? "ubuntu" : docker.getDockerPull());
-    // dockerExecutor.setCmd("/bin/sh -c 'mkdir -p /mnt/disk/" + localDir + "; echo test >
-    // /mnt/disk/" + localDir + "/tester; cd /mnt/disk/" + localDir + "; ls -l > output '");// +
-    // commandLine.build() + "'"););
-    dockerExecutor.setCmd("mkdir -p /mnt/disk/" + localDir + "; echo test > /mnt/disk/" + localDir + "/tester ; cd /mnt/disk/" + localDir +" ; "+ commandLine.build());
+    dockerExecutor
+        .setCmd("mkdir -p /mnt/disk/" + localDir + "; echo test > /mnt/disk/" + localDir + "/tester ; cd /mnt/disk/" + localDir + " ; " + commandLine.build());
     createRequest.setDocker(dockerExecutor);
 
     Pipeline response = null;
@@ -111,12 +113,12 @@ public class GoogleCallable extends TaskRunCallable {
       runRequest.setPipelineId(response.getPipelineId());
       RunPipelineArgs runPipelineArgs = new RunPipelineArgs();
       runPipelineArgs.setInputs(urls);
-      runPipelineArgs.setOutputs(Collections.singletonMap(OUTPUT, GS_OUTPUT + "_" + job.getId().toString() + "/"));
+      runPipelineArgs.setOutputs(Collections.singletonMap(OUTPUT, outputLocation.toUri().toString() + "_" + job.getId().toString() + "/"));
       runPipelineArgs.setKeepVmAliveOnFailureDuration("70000s");
       LoggingOptions loggingOptions = new LoggingOptions();
-      loggingOptions.setGcsPath("gs://bunny-pipes/log");
+      loggingOptions.setGcsPath(logLocation.toUri().toString());
       runPipelineArgs.setLogging(loggingOptions);
-      runPipelineArgs.setProjectId(PROJECTID);
+      runPipelineArgs.setProjectId(projectId);
       runRequest.setPipelineArgs(runPipelineArgs);
       Operation execute = genomicsService.pipelines().run(runRequest).execute();
       this.operation = execute.getName();
@@ -144,7 +146,7 @@ public class GoogleCallable extends TaskRunCallable {
   }
 
   @Override
-  RemoteTask check() throws RemoteServiceException {
+  public RemoteTask check() throws RemoteServiceException {
     Genomics genomicsService;
     try {
       genomicsService = createGenomicsService();
@@ -165,7 +167,7 @@ public class GoogleCallable extends TaskRunCallable {
 
         @Override
         public URI getOutputLocation() {
-          return URI.create(GS_OUTPUT + "_" + job.getRootId().toString() + "/");
+          return URI.create(outputLocation.toUri().toString() + "_" + job.getId().toString() + "/");
         }
 
         @Override
