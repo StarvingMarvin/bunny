@@ -13,7 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import org.rabix.bindings.BindingException;
 import org.rabix.bindings.ProtocolProcessor;
@@ -287,7 +286,7 @@ public class CWLProcessor implements ProtocolProcessor {
       } else {
         return collectOutput(job, workingDir, hashAlgorithm, itemSchema, binding, outputPort);
       }
-    } else if (CWLSchemaHelper.isRecordFromSchema(schema)) {
+    } else if (CWLSchemaHelper.isRecordFromSchema(schema) && CWLBindingHelper.getOutputEval(binding) == null) {
       Map<String, Object> record = new HashMap<>();
       Object fields = CWLSchemaHelper.getFields(schema);
 

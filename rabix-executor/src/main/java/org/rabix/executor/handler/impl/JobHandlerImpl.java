@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,6 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
 
 import javax.inject.Inject;
 
@@ -197,7 +199,7 @@ public class JobHandlerImpl implements JobHandler {
       for (SingleFileRequirement fileRequirement : fileRequirements) {
         File destinationFile = new File(workingDir, fileRequirement.getFilename());
         if (fileRequirement instanceof SingleTextFileRequirement) {
-          FileUtils.writeStringToFile(destinationFile, ((SingleTextFileRequirement) fileRequirement).getContent());
+          FileUtils.writeStringToFile(destinationFile, ((SingleTextFileRequirement) fileRequirement).getContent().replaceAll(Matcher.quoteReplacement("\\$"), "\\$"));
           continue;
         }
         if (fileRequirement instanceof SingleInputFileRequirement || fileRequirement instanceof SingleInputDirectoryRequirement) {
@@ -273,21 +275,19 @@ public class JobHandlerImpl implements JobHandler {
         job = Job.cloneWithOutputs(job, results);
         job = Job.cloneWithStatus(job, JobStatus.COMPLETED);
         return job;
-      }
-
-      job = bindings.postprocess(job, workingDir, enableHash? hashAlgorithm : null, null);  
-      
+      }  
       String standardErrorLog = bindings.getStandardErrorLog(job);
+      Path errFile = workingDir.toPath().resolve(standardErrorLog != null ? standardErrorLog : DEFAULT_ERROR_FILE);
       
-      if (standardErrorLog == null) {
-        try {
-          String processExitMessage = containerHandler.getProcessExitMessage();
-          if (!StringUtils.isEmpty(processExitMessage))
-            Files.write(workingDir.toPath().resolve(DEFAULT_ERROR_FILE), processExitMessage.getBytes());
-        } catch (IOException e) {
-          throw new ExecutorException("Couldn't write error file", e);
-        }
+      String processExitMessage = containerHandler.getProcessExitMessage();
+      try {
+        if (!StringUtils.isEmpty(processExitMessage) && !Files.exists(errFile))
+          Files.write(errFile, processExitMessage.getBytes());
+      } catch (IOException e) {
+        throw new ExecutorException("Couldn't write error file", e);
       }
+      
+      job = bindings.postprocess(job, workingDir, enableHash? hashAlgorithm : null, null);  
       
       if (!isSuccessful()) {
         uploadOutputFiles(job, bindings);

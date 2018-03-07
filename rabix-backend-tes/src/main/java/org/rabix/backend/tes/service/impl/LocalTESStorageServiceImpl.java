@@ -10,8 +10,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.configuration.Configuration;
-import org.rabix.backend.service.RemoteStorageService;
-import org.rabix.backend.service.TESStorageException;
+import org.rabix.backend.tes.config.TESConfig;
+import org.rabix.backend.tes.service.TESStorageException;
+import org.rabix.backend.tes.service.TESStorageService;
 import org.rabix.bindings.BindingException;
 import org.rabix.bindings.helper.FileValueHelper;
 import org.rabix.bindings.model.DirectoryValue;
@@ -24,7 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.inject.Inject;
 
-public class LocalTESStorageServiceImpl implements RemoteStorageService {
+public class LocalTESStorageServiceImpl implements TESStorageService {
 
   private final static Logger logger = LoggerFactory.getLogger(LocalTESStorageServiceImpl.class);
 
@@ -34,7 +35,7 @@ public class LocalTESStorageServiceImpl implements RemoteStorageService {
   @Inject
   public LocalTESStorageServiceImpl(Configuration configuration) {
     localFileStorage = Paths.get(configuration.getString("backend.execution.directory"));
-    String storageConfig = configuration.getString("rabix.tes.storage.base", localFileStorage.toString());
+    String storageConfig = configuration.getString(TESConfig.STORAGE_BASE, localFileStorage.toString());
     URI uri = URI.create(storageConfig);
     if (uri.getScheme() == null) {
       try {
