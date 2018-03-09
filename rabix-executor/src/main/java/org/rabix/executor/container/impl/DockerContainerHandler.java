@@ -33,6 +33,7 @@ import org.rabix.backend.api.callback.WorkerStatusCallback;
 import org.rabix.backend.api.callback.WorkerStatusCallbackException;
 import org.rabix.bindings.Bindings;
 import org.rabix.bindings.BindingsFactory;
+import org.rabix.bindings.CommandLine;
 import org.rabix.bindings.helper.FileValueHelper;
 import org.rabix.bindings.mapper.FilePathMapper;
 import org.rabix.bindings.model.FileValue;
@@ -217,7 +218,7 @@ public class DockerContainerHandler implements ContainerHandler {
     List<String> readLines = IOUtils.readLines(stream);
     return readLines.get(0);
   }
-  
+
   @Override
   public void start() throws ContainerException {
     try {
@@ -279,7 +280,7 @@ public class DockerContainerHandler implements ContainerHandler {
         commandLine = normalizeCommandLine(commandLine.replace("/bin/sh -c", ""));
         builder.entrypoint("/bin/sh");
       } else {
-        commandLine = normalizeCommandLine(commandLine);
+        //commandLine = normalizeCommandLine(commandLine);
         builder.entrypoint("/bin/sh");
       }
 
@@ -330,11 +331,11 @@ public class DockerContainerHandler implements ContainerHandler {
 
   private String normalizeCommandLine(String commandLine) {
     commandLine = commandLine.trim();
-    if (commandLine.startsWith("\"") && commandLine.endsWith("\"")) {
-      commandLine = commandLine.substring(1, commandLine.length() - 1);
+    if (commandLine.startsWith("\"")) {
+        commandLine = commandLine.substring(1, commandLine.lastIndexOf('\"')) + commandLine.substring(commandLine.lastIndexOf('\"') + 1, commandLine.length());
     }
-    if (commandLine.startsWith("'") && commandLine.endsWith("'")) {
-      commandLine = commandLine.substring(1, commandLine.length() - 1);
+    if (commandLine.startsWith("'")) {
+        commandLine = commandLine.substring(1, commandLine.lastIndexOf('\'')) + commandLine.substring(commandLine.lastIndexOf('\"') + 1, commandLine.length());
     }
     return commandLine;
   }
